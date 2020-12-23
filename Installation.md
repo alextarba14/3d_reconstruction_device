@@ -47,12 +47,13 @@
   The binary demos, tutorials and test files will be copied into `/usr/local/bin`<br />
   **Tip:** Use *`make -jX`* for parallel compilation, where *`X`* stands for the number of CPU cores available:<br />
   This enhancement may significantly improve the build time. The side-effect, however, is that it may cause a low-end platform to hang randomly.<br />
-  
+
 ## 6. Turn on the camera
 * Connect your IntelRealsense D435i to the USB port and then open a terminal and type:
 `realsense-viewer` <br/>
 This will start the GUI application of IntelRealsense D435i and the rest will be history.
 
+ <br />  
 # II. Install LXDE as default desktop to save ~1GB of RAM.
 ## 1. Remove ubuntu-desktop
 * `sudo apt remove --purge ubuntu-desktop`
@@ -70,6 +71,8 @@ This will start the GUI application of IntelRealsense D435i and the rest will be
 
 ## 6. Reboot the system in order to apply the changes.
 * `sudo reboot`
+   
+ <br />  
 
 # III. Enable Remote Desktop Connection from other device.
 ## 1. Make sure ssh is enabled.
@@ -94,8 +97,33 @@ Open up /etc/xrdp/startwm.sh:
 **IMPORTANT** Comment out the last two lines(for NVIDIA Jetson Nano) because it doesn't connect from the Microsfot RDP...
 Then add the following line at the end of the file:
 >lxsession -s LXDE -e LXDE
-
 ## 6. Test your connection using Microsoft RDP by entering the ip address of the device and then the credentials.
 
+ <br />  
 
+# IV. Install Python packages(optional).
+## 1. Make sure you have Python installed also pip too.
+* `python --version`
+* `python3 --version`
+* `pip --version`
 
+## 2. Install Python development and its packages.
+* `sudo apt-get install python python-dev` or `sudo apt-get install python3 python3-dev`
+
+## 3. Ensure apt-get is up to date.
+* `sudo apt-get update` (upgrade is optional since in Jetson it may crash the system).
+
+## 4. Run the top level CMake command but this time with an additional flag -DBUILD_PYTHON_BINDINGS:bool=true.
+**Make sure that you are in the root directory.**
+* `mkdir build`
+* `cd build`
+* `cmake ../-DFORCE_RSUSB_BACKEND=ON -DBUILD_PYTHON_BINDINGS:bool=true -DPYTHON_EXECUTABLE=/usr/bin/python3 -DCMAKE_BUILD_TYPE=release -DBUILD_EXAMPLES=true -DBUILD_GRAPHICAL_EXAMPLES=true -DBUILD_WITH_CUDA:bool=true`
+
+* `make -j4` *(4 is number of CPU cores to parallelize the build process)*
+* `sudo make install`
+
+## 5. Update PYTHONPATH env. variable to add the path to the pyrealsense library.
+* `export PYTHONPATH=$PYTHONPATH>/usr/local/lib`
+
+## 6. If this doesn't work do the steps from: https://github.com/IntelRealSense/librealsense/issues/6964.
+ <br />  
