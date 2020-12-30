@@ -127,3 +127,104 @@ Then add the following line at the end of the file:
 
 ## 6. If this doesn't work do the steps from: https://github.com/IntelRealSense/librealsense/issues/6964.
  <br />  
+
+ <br />  
+
+# V. SLAM with D435i.
+## 1. Install the ROS distribution.
+Since on the Jetson Nano runs Ubuntu 18.04 we must install the melodic distribution from: http://wiki.ros.org/melodic/Installation/Ubuntu.
+
+### 1.1 Setup your sources.list
+* `sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'`
+
+### 1.2 Set up your keys
+* `sudo apt-key adv --keyserver 'hkp://keyserver.ubuntu.com:80' --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654`
+
+### 1.3 Installation
+First make sure that your packages are up to date:
+```
+sudo apt update
+export ROS_VER=melodic
+sudo apt-get install ros-$ROS_VER-realsense2-camera
+sudo apt install ros-melodic-desktop-full 
+```
+This will install both realsense2_camera and its dependents, including librealsense2 library.
+
+### 1.4 Check for available packages
+```
+apt search ros-melodic
+```
+
+### 1.5 Setup your environment
+```
+echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc
+source ~/.bashrc
+```
+
+### 1.6 Dependencies for building packages.
+To install this tool and other dependencies for building ROS packages, run:
+```
+sudo apt install python-rosdep python-rosinstall python-rosinstall-generator python-wstool build-essential
+```
+### 1.7 Initialize rosdep
+```
+sudo rosdep init
+rosdep update
+```
+
+sudo apt install python-rosdep python-rosinstall python-rosinstall-generator python-wstool build-essential
+## 2. Install Intel® RealSense™ ROS from Sources
+### 2.1 Create a catkin workspace Ubuntu**
+```
+mkdir -p ~/catkin_ws/src
+cd ~/catkin_ws/src/
+```
+### 2.2 Clone the latest Intel® RealSense™ ROS from https://github.com/IntelRealSense/realsense-ros/releases into 'catkin_ws/src/'
+```
+git clone https://github.com/ros-perception/vision_opencv
+git clone https://github.com/IntelRealSense/realsense-ros.git
+cd realsense-ros/
+git checkout `git tag | sort -V | grep -P "^2.\d+\.\d+" | tail -1`
+cd .. 
+```
+
+## After the jetson hacks tutorial
+```
+sudo apt install ros-melodic-rtabmap-ros
+sudo apt install ros-melodic-robot-localization
+sudo apt-get install ros-melodic-imu-tools
+```
+
+## In case of error like this
+```
+libGL error: MESA-LOADER: failed to open swrast (search paths /usr/lib/aarch64-linux-gnu/dri:\$${ORIGIN}/dri:/usr/lib/dri)
+libGL error: failed to load driver: swrast
+Could not open OpenGL window, please check your graphic drivers or use the textual SDK tools
+```
+
+You need to create a soft link between some libdrm libraries:
+```
+cd /usr/lib/aarch64-linux-gnu
+sudo ln -sf libdrm.so.2.4.0 libdrm.so.2
+```
+
+## Versions
+* librealsense SDK v2.40.0
+* realsense-viewer v2.40.0
+* Firmware version: 05.12.09.00
+## Kernel
+* Linux 4.9.140-tegra #1 SMP PREEMPT Fri Oct 16 12:32:46 PDT 2020 aarch64 aarch64 aarch64 GNU/Linux \
+Distributor ID:	Ubuntu \
+Description:	Ubuntu 18.04.5 LTS \
+Release:	18.04 \
+Codename:	bionic 
+
+## Compilers
+gcc (Ubuntu/Linaro 7.5.0-3ubuntu1~18.04) 7.5.0 \
+cmake version 3.10.2 \
+opencv 4.1.1
+
+## IDE
+1.52.1 ea3859d4ba2f3e577a159bc91e3074c5d85c0523 arm64
+
+
