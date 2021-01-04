@@ -53,7 +53,7 @@
 `realsense-viewer` <br/>
 This will start the GUI application of IntelRealsense D435i and the rest will be history.
 
- <br />  
+ 
 # II. Install LXDE as default desktop to save ~1GB of RAM.
 ## 1. Remove ubuntu-desktop
 * `sudo apt remove --purge ubuntu-desktop`
@@ -86,6 +86,7 @@ It should be green and running.
 
 ## 3. Test the connection. From another device run:
 * `ssh <user>@<ip_address>`
+In case of WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED! use ```ssh-keygen -R "you server hostname or ip"```
 
 ## 4. Install XRDP.
 * `sudo apt-get install xrdp`
