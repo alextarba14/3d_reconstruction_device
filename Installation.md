@@ -109,10 +109,11 @@ Then add the following line at the end of the file:
 * `pip --version`
 
 ## 2. Install Python development and its packages.
-* ```
+```
 sudo apt-get install python-pip
 sudo apt-get install python python-dev
-``` or 
+``` 
+or
 ```
 sudo apt-get install python3-pip
 sudo apt-get install python3 python3-dev
