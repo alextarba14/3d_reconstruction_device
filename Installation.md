@@ -39,7 +39,7 @@
   * Navigate to *librealsense* root directory and run `mkdir build && cd build`<br />
   * Run CMake:
     * `cmake ../` - The default build is set to produce the core shared object and unit-tests binaries in Debug mode. Use `-DCMAKE_BUILD_TYPE=Release` to build with optimizations.<br />
-    * `cmake ../ -DBUILD_EXAMPLES=true` - Builds *librealsense* along with the demos and tutorials<br />
+    * `cmake ../ -DCMAKE_BUILD_TYPE=release -DBUILD_EXAMPLES=true -DBUILD_GRAPHICAL_EXAMPLES=true` - Builds *librealsense* along with the demos and tutorials<br />
 
   * Recompile and install *librealsense* binaries:<br />  
   `sudo make uninstall && make clean && make -j4 && sudo make install`<br />  
@@ -126,7 +126,7 @@ sudo apt-get install python3 python3-dev
 **Make sure that you are in the root directory.**
 * `mkdir build`
 * `cd build`
-* `cmake ../ -DBUILD_PYTHON_BINDINGS:bool=true -DCMAKE_BUILD_TYPE=release -DBUILD_EXAMPLES=true -DBUILD_GRAPHICAL_EXAMPLES=true`
+* `cmake ../ -DBUILD_PYTHON_BINDINGS:bool=true -DPYTHON_EXECUTABLE=/usr/bin/python3 -DCMAKE_BUILD_TYPE=release -DBUILD_EXAMPLES=true -DBUILD_GRAPHICAL_EXAMPLES=true`
 
 * `make -j4` *(4 is number of CPU cores to parallelize the build process)*
 * `sudo make install`
