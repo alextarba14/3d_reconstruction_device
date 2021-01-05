@@ -109,7 +109,14 @@ Then add the following line at the end of the file:
 * `pip --version`
 
 ## 2. Install Python development and its packages.
-* `sudo apt-get install python python-dev` or `sudo apt-get install python3 python3-dev`
+* ```
+sudo apt-get install python-pip
+sudo apt-get install python python-dev
+``` or 
+```
+sudo apt-get install python3-pip
+sudo apt-get install python3 python3-dev
+```
 
 ## 3. Ensure apt-get is up to date.
 * `sudo apt-get update` (upgrade is optional since in Jetson it may crash the system).
@@ -118,13 +125,13 @@ Then add the following line at the end of the file:
 **Make sure that you are in the root directory.**
 * `mkdir build`
 * `cd build`
-* `cmake ../-DFORCE_RSUSB_BACKEND=ON -DBUILD_PYTHON_BINDINGS:bool=true -DPYTHON_EXECUTABLE=/usr/bin/python3 -DCMAKE_BUILD_TYPE=release -DBUILD_EXAMPLES=true -DBUILD_GRAPHICAL_EXAMPLES=true -DBUILD_WITH_CUDA:bool=true`
+* `cmake ../ -DBUILD_PYTHON_BINDINGS:bool=true -DCMAKE_BUILD_TYPE=release -DBUILD_EXAMPLES=true -DBUILD_GRAPHICAL_EXAMPLES=true`
 
 * `make -j4` *(4 is number of CPU cores to parallelize the build process)*
 * `sudo make install`
 
 ## 5. Update PYTHONPATH env. variable to add the path to the pyrealsense library.
-* `export PYTHONPATH=$PYTHONPATH>/usr/local/lib`
+* `export PYTHONPATH=$PYTHONPATH:/usr/local/lib`
 
 ## 6. If this doesn't work do the steps from: https://github.com/IntelRealSense/librealsense/issues/6964.
  <br />  
