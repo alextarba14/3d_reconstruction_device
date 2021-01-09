@@ -3,32 +3,42 @@
 **Note:** This installation guide it was tested for **Raspberry PI4 ModelB 4GB RAM** and **NVIDIA Jetson Nano B01 4GB RAM**. For full installation steps visit: https://github.com/IntelRealSense/librealsense/blob/master/doc/installation.md
 ## OS Versions: 
 * On Raspberry PI: Raspbian 64bit (beta).
-* On Jetson Nano: Image provided by Nvidia(Ubuntu 18.04).
+* On Jetson Nano: Image provided by Nvidia(Ubuntu 18.04.5).
 ## 1.Make Ubuntu Up-to-date:
-**Note:** **Only on RPI**, because Jetson Nano has some problems with the updating package so it's not recommended(display will be gone).
+**Note: Because **Jetson Nano** has some problems with the upgrading packages so it's not recommended(display will be gone).
   * Update Ubuntu distribution, including getting the latest stable kernel:
-    * `sudo apt-get update && sudo apt-get upgrade && sudo apt-get dist-upgrade`  <br />  
+    ```
+    sudo apt-get update
+    ```
 
 ## 2. Download librealsense github repository: 
-* Download the complete source tree with *git*<br />
-  `git clone https://github.com/IntelRealSense/librealsense.git`<br />
+* Download the complete source tree with *git* or get it from Source Code archive: https://github.com/IntelRealSense/librealsense/releases 
+  ```
+  git clone https://github.com/IntelRealSense/librealsense.git
+  ```
+  
 
 ## 3. Prepare Linux Backend and the Dev. Environment: 
   1. Navigate to *librealsense* root directory to run the following scripts.<br />
      ***Unplug any connected Intel RealSense camera.***<br />  
 
   2. Install the core packages required to build *librealsense* binaries and the affected kernel modules:  
-    `sudo apt-get install git libssl-dev libusb-1.0-0-dev pkg-config libgtk-3-dev`  <br /><br />
-
-     * Then for both:<br />
-      `sudo apt-get install libglfw3-dev libgl1-mesa-dev libglu1-mesa-dev at`  <br /><br />
+     ```
+     sudo apt-get install git libssl-dev libusb-1.0-0-dev pkg-config libgtk-3-dev
+     sudo apt-get install libglfw3-dev libgl1-mesa-dev libglu1-mesa-dev at
+     ```
     
 > **Cmake Note**: certain librealsense CMAKE flags (e.g. CUDA) require version 3.8+ which is currently not made available via apt manager for Ubuntu LTS.   
     Go to the [official CMake site](https://cmake.org/download/) to download and install the application  
-
-  **Note** on graphic sub-system utilization:<br />
-     *glfw3*, *mesa* and *gtk* packages are required if you plan to build the SDK's OpenGL-enabled examples. The *librealsense* core library and a range of demos/tools are designed for headless environment deployment.
-
+ 3. Install cmake(version 10.0.2 tested):
+    ```
+    sudo apt install cmake
+    ```
+ 4. Install python3 alongside development packages:
+    ```
+    sudo apt-get install python3-pip
+    sudo apt-get install python3 python3-dev
+    ```
 ## 4. Run Intel Realsense permissions script:
 * Make sure you're in the librealsense root directory then run:  
     `./scripts/setup_udev_rules.sh`  
@@ -36,19 +46,37 @@
 *Notice: One can always remove permissions by running:* *`./scripts/setup_udev_rules.sh --uninstall`*
 
 ## 5. Building librealsense2 SDK
-  * Navigate to *librealsense* root directory and run `mkdir build && cd build`<br />
-  * Run CMake:
-    * `cmake ../` - The default build is set to produce the core shared object and unit-tests binaries in Debug mode. Use `-DCMAKE_BUILD_TYPE=Release` to build with optimizations.<br />
-    * `cmake ../ -DCMAKE_BUILD_TYPE=release -DBUILD_EXAMPLES=true -DBUILD_GRAPHICAL_EXAMPLES=true` - Builds *librealsense* along with the demos and tutorials<br />
+  * Navigate to *librealsense* root directory and create the build directory:
+    ```
+    mkdir build && cd build
+    ```
+  * Run CMake build:
+    ```
+    cmake ../ -DBUILD_PYTHON_BINDINGS:bool=true 
+              -DPYTHON_EXECUTABLE=/usr/bin/python3 
+              -DCMAKE_BUILD_TYPE=release 
+              -DBUILD_EXAMPLES=true 
+              -DBUILD_GRAPHICAL_EXAMPLES=true
+    ```
+    * -DBUILD_PYTHON_BINDINGS:bool=true flag set to true specifies that we want the python wrappers too.
+    * -DPYTHON_EXECUTABLE=/usr/bin/python3 builds for specific version of python **!IMPORTANT**.
+    * -DCMAKE_BUILD_TYPE=release optimized version (not development).
+    *-DBUILD_EXAMPLES=true & -DBUILD_GRAPHICAL_EXAMPLES=true C++ examples will be built.
+      
 
-  * Recompile and install *librealsense* binaries:<br />  
-  `sudo make uninstall && make clean && make -j4 && sudo make install`<br />  
-  The shared object will be installed in `/usr/local/lib`, header files in `/usr/local/include`.<br />
-  The binary demos, tutorials and test files will be copied into `/usr/local/bin`<br />
+  * Recompile and install *librealsense* binaries:
+    ```
+    sudo make uninstall && make clean && make -j4 && sudo make install
+    ```
+    *(4 is number of CPU cores to parallelize the build process)* \
+  The shared object will be installed in `/usr/local/lib`, header files in `/usr/local/include`.
+  The binary demos, tutorials and test files will be copied into `/usr/local/bin` \
   **Tip:** Use *`make -jX`* for parallel compilation, where *`X`* stands for the number of CPU cores available:<br />
   This enhancement may significantly improve the build time. The side-effect, however, is that it may cause a low-end platform to hang randomly.<br />
+## 6. Python development
+* Copy the .so objects from `librealsens/build/wrappers/python/` in the same directory as the python file when you want to use the **pyrealsense2** package.
 
-## 6. Turn on the camera
+## 7. Turn on the camera
 * Connect your IntelRealsense D435i to the USB port and then open a terminal and type:
 `realsense-viewer` <br/>
 This will start the GUI application of IntelRealsense D435i and the rest will be history.
@@ -100,44 +128,6 @@ Then add the following line at the end of the file:
 >lxsession -s LXDE -e LXDE
 ## 6. Test your connection using Microsoft RDP by entering the ip address of the device and then the credentials.
 
- <br />  
-
-# IV. Install Python packages(optional).
-## 1. Make sure you have Python installed also pip too.
-* `python --version`
-* `python3 --version`
-* `pip --version`
-
-## 2. Install Python development and its packages.
-```
-sudo apt-get install python-pip
-sudo apt-get install python python-dev
-``` 
-or
-```
-sudo apt-get install python3-pip
-sudo apt-get install python3 python3-dev
-```
-
-## 3. Ensure apt-get is up to date.
-* `sudo apt-get update` (upgrade is optional since in Jetson it may crash the system).
-
-## 4. Run the top level CMake command but this time with an additional flag -DBUILD_PYTHON_BINDINGS:bool=true.
-**Make sure that you are in the root directory.**
-* `mkdir build`
-* `cd build`
-* `cmake ../ -DBUILD_PYTHON_BINDINGS:bool=true -DPYTHON_EXECUTABLE=/usr/bin/python3 -DCMAKE_BUILD_TYPE=release -DBUILD_EXAMPLES=true -DBUILD_GRAPHICAL_EXAMPLES=true`
-
-* `make -j4` *(4 is number of CPU cores to parallelize the build process)*
-* `sudo make install`
-
-## 5. Update PYTHONPATH env. variable to add the path to the pyrealsense library.
-* `export PYTHONPATH=$PYTHONPATH:/usr/local/lib`
-
-## 6. If this doesn't work do the steps from: https://github.com/IntelRealSense/librealsense/issues/6964.
- <br />  
-
- <br />  
 
 # V. SLAM with D435i.
 ## 1. Install the ROS distribution.
