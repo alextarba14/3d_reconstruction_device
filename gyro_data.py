@@ -14,8 +14,12 @@ pipeline.start(config)
 while True:
     frames = pipeline.wait_for_frames()
     for frame in frames:
-        motion_data = frame.as_motion_frame().get_motion_data()
-        print(motion_data)
+        motion_frame = frame.as_motion_frame()
+        print(motion_frame.get_profile().stream_type())
+        print(motion_frame.get_profile().format())
+        print(motion_frame.get_timestamp())
+        motion_data = motion_frame.get_motion_data()
         # prints: x: -0.0294199, y: -7.21769, z: -6.41355 for me
         # to get numpy array:
         print(np.array([motion_data.x, motion_data.y, motion_data.z]))
+
