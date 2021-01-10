@@ -11,3 +11,29 @@ class Angle:
     # Overriding str() method
     def __str__(self):
         return f"[{self.x}, {self.y}, {self.z}]"
+
+    # Overriding left multiplication method
+    def __mul__(self, other):
+        return self.__multiplication(other)
+
+    # Overriding left multiplication method
+    def __rmul__(self, other):
+        return self.__multiplication(other)
+
+    def __multiplication(self,other):
+        """
+        Used for overriding left and right multiplication.
+        """
+
+        if other.x and other.y and other.z:
+            # Multiplication between same format
+            self.x = self.x * other.x
+            self.y = self.y * other.y
+            self.z = self.z * other.z
+        else:
+            # Scalar multiplication
+            self.x = other * self.x
+            self.y = other * self.y
+            self.z = other * self.z
+
+        return self
