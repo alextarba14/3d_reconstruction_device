@@ -1,9 +1,9 @@
 import threading
-
 from angle import Angle
 import numpy as np
 import pyrealsense2 as rs
 import math
+
 
 def process_accel(accel_data):
     """
@@ -42,6 +42,7 @@ def process_accel(accel_data):
         theta.x = theta.x * alpha + accel_angle.x * (1-alpha)
         theta.z = theta.z * alpha + accel_angle.z * (1-alpha)
     print("Theta angle(accel): " + str(theta))
+
 
 def process_gyro(gyro_data, timestamp):
     """
@@ -87,6 +88,9 @@ def main():
     # Configure gyro and accelerometer streams
     pipeline = rs.pipeline()
     config = rs.config()
+    # Configuring streams at different rates
+    # Accelerometer available FPS: {63, 250}Hz
+    # Gyroscope available FPS: {200,400}Hz
     config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 250)
     config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 200)
 
