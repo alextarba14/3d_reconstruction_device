@@ -25,7 +25,7 @@ class Angle:
         Used for overriding left and right multiplication.
         """
 
-        if other.x and other.y and other.z:
+        if isinstance(other,Angle):
             # Multiplication between same format
             self.x = self.x * other.x
             self.y = self.y * other.y
@@ -37,3 +37,13 @@ class Angle:
             self.z = other * self.z
 
         return self
+
+    def add(self, x_value, y_value, z_value):
+        """
+        Adds x,y,z values to existing ones.
+        """
+        self.x = self.x + x_value
+        self.y = self.y + y_value
+        self.z = self.z + z_value
+
+
