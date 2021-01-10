@@ -41,7 +41,7 @@ def process_accel(accel_data):
         """
         theta.x = theta.x * alpha + accel_angle.x * (1-alpha)
         theta.z = theta.z * alpha + accel_angle.z * (1-alpha)
-
+    print("Theta angle(accel): " + str(theta))
 
 def process_gyro(gyro_data, timestamp):
     """
@@ -63,17 +63,17 @@ def process_gyro(gyro_data, timestamp):
     # gyro_data.y : Yaw
     # gyro_data.z : Roll
     gyro_angle = Angle(gyro_data.x,gyro_data.y,gyro_data.z)
-    print("Gyro angle before is: " + str(gyro_angle))
+    print("Gyro angle (before): " + str(gyro_angle))
     # Compute the difference between arrival times of previous and current gyro frames
     dt_gyro = (timestamp - last_timestamp_gyro) / 1000.0
     last_timestamp_gyro = timestamp
-    print("Dt_gyro: " + str(dt_gyro))
+    print("dt_gyro: " + str(dt_gyro))
     # Change in angle equals gyro measurements * time passed since last measurement
     gyro_angle = gyro_angle * dt_gyro
 
-    print("Gyro angle is: " + str(gyro_angle))
+    print("Gyro angle(after): " + str(gyro_angle))
     theta.add(-gyro_angle.z,-gyro_angle.y,gyro_angle.x)
-    print("Theta angle is: " + str(theta))
+    print("Theta angle(gyro): " + str(theta))
 
 
 # Global variables
@@ -81,6 +81,7 @@ alpha = 0.98
 first = True
 theta = Angle(0, 0, 0)
 last_timestamp_gyro = 0
+
 
 def main():
     # Configure gyro and accelerometer streams
@@ -108,12 +109,6 @@ def main():
                 # Get gyro measurements
                 gyro_data = motion.get_motion_data()
                 process_gyro(gyro_data, timestamp)
-
-
-            motion_data = motion.get_motion_data()
-            # prints: x: -0.0294199, y: -7.21769, z: -6.41355 for me
-            # to get numpy array:
-            print(np.array([motion_data.x, motion_data.y, motion_data.z]))
 
 
 if __name__ == "__main__":
