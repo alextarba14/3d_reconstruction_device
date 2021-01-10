@@ -3,7 +3,7 @@ from angle import Angle
 import numpy as np
 import pyrealsense2 as rs
 import math
-
+from timeit import default_timer as timer
 
 def process_accel(accel_data):
     """
@@ -24,7 +24,9 @@ def process_accel(accel_data):
     global first
     global theta
     global alpha
+    global mutex
 
+    mutex.acquire()
     # If it is the first iteration set initial pose of camera according to accelerometer data
     if first:
         first = False
@@ -41,6 +43,7 @@ def process_accel(accel_data):
         """
         theta.x = theta.x * alpha + accel_angle.x * (1-alpha)
         theta.z = theta.z * alpha + accel_angle.z * (1-alpha)
+    mutex.release()
     print("Theta angle(accel): " + str(theta))
 
 
@@ -73,7 +76,12 @@ def process_gyro(gyro_data, timestamp):
     gyro_angle = gyro_angle * dt_gyro
 
     print("Gyro angle(after): " + str(gyro_angle))
+
+    # Apply the calculated change of angle to the current angle (theta)
+    global mutex
+    mutex.acquire()
     theta.add(-gyro_angle.z,-gyro_angle.y,gyro_angle.x)
+    mutex.release()
     print("Theta angle(gyro): " + str(theta))
 
 
@@ -83,8 +91,13 @@ first = True
 theta = Angle(0, 0, 0)
 last_timestamp_gyro = 0
 
+# Mutex primitive
+mutex = threading.Lock()
+
 
 def main():
+    start = timer()
+    nr = 0
     # Configure gyro and accelerometer streams
     pipeline = rs.pipeline()
     config = rs.config()
@@ -113,6 +126,13 @@ def main():
                 # Get gyro measurements
                 gyro_data = motion.get_motion_data()
                 process_gyro(gyro_data, timestamp)
+        nr = nr + 1
+        end = timer()
+        if end - start >= 5:
+            print("Stopped! Nr: " + str(nr))
+            break
+
+
 
 
 if __name__ == "__main__":
