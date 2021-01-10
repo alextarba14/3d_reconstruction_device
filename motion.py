@@ -1,3 +1,5 @@
+import threading
+
 from angle import Angle
 import numpy as np
 import pyrealsense2 as rs
@@ -40,10 +42,45 @@ def process_accel(accel_data):
         theta.x = theta.x * alpha + accel_angle.x * (1-alpha)
         theta.z = theta.z * alpha + accel_angle.z * (1-alpha)
 
+
+def process_gyro(gyro_data, timestamp):
+    """
+    Computes the change in rotation angle, based on gyroscope measurements.
+    It accepts gyro_data, an rs2_vector containing measurements retrieved from gyroscope,
+    and timestamp, the timestamp of the current frame from gyroscope stream.
+    """
+    global first
+    global last_timestamp_gyro
+
+    # On the first iteration use only data from accelerometer
+    # to set the camera's initial position
+    if first:
+        last_timestamp_gyro = timestamp
+        return
+
+    # Initialize gyro angle with data from gyro
+    # gyro_data.x : Pitch
+    # gyro_data.y : Yaw
+    # gyro_data.z : Roll
+    gyro_angle = Angle(gyro_data.x,gyro_data.y,gyro_data.z)
+    print("Gyro angle before is: " + str(gyro_angle))
+    # Compute the difference between arrival times of previous and current gyro frames
+    dt_gyro = (timestamp - last_timestamp_gyro) / 1000.0
+    last_timestamp_gyro = timestamp
+    print("Dt_gyro: " + str(dt_gyro))
+    # Change in angle equals gyro measurements * time passed since last measurement
+    gyro_angle = gyro_angle * dt_gyro
+
+    print("Gyro angle is: " + str(gyro_angle))
+    theta.add(-gyro_angle.z,-gyro_angle.y,gyro_angle.x)
+    print("Theta angle is: " + str(theta))
+
+
 # Global variables
 alpha = 0.98
 first = True
 theta = Angle(0, 0, 0)
+last_timestamp_gyro = 0
 
 def main():
     # Configure gyro and accelerometer streams
@@ -61,11 +98,17 @@ def main():
             motion = frame.as_motion_frame()
             if motion and motion.get_profile().stream_type() == rs.stream.accel:
                 # Accelerometer frame
-                # Get the timestamp of current frame
-                timestamp = motion.get_timestamp()
                 # Get accelerometer measurements
                 accel_data = motion.get_motion_data()
                 process_accel(accel_data)
+            elif motion and motion.get_profile().stream_type() == rs.stream.gyro:
+                # Gyro frame
+                # Get the timestamp of current frame
+                timestamp = motion.get_timestamp()
+                # Get gyro measurements
+                gyro_data = motion.get_motion_data()
+                process_gyro(gyro_data, timestamp)
+
 
             motion_data = motion.get_motion_data()
             # prints: x: -0.0294199, y: -7.21769, z: -6.41355 for me
