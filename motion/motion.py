@@ -5,6 +5,15 @@ import pyrealsense2 as rs
 import math
 from timeit import default_timer as timer
 
+# Global variables
+alpha = 0.98
+first = True
+theta = Angle(0, 0, 0)
+last_timestamp_gyro = 0
+
+# Mutex primitive
+mutex = threading.Lock()
+
 def process_accel(accel_data):
     """
     Computes the rotation angle from accelerometer data and updates the current theta.
@@ -85,15 +94,6 @@ def process_gyro(gyro_data, timestamp):
     print("Theta angle(gyro): " + str(theta))
 
 
-# Global variables
-alpha = 0.98
-first = True
-theta = Angle(0, 0, 0)
-last_timestamp_gyro = 0
-
-# Mutex primitive
-mutex = threading.Lock()
-
 
 def main():
     start = timer()
@@ -118,6 +118,7 @@ def main():
                 # Accelerometer frame
                 # Get accelerometer measurements
                 accel_data = motion.get_motion_data()
+                print("Accel data: " + str(accel_data))
                 process_accel(accel_data)
             elif motion and motion.get_profile().stream_type() == rs.stream.gyro:
                 # Gyro frame
@@ -125,6 +126,7 @@ def main():
                 timestamp = motion.get_timestamp()
                 # Get gyro measurements
                 gyro_data = motion.get_motion_data()
+                print("gyro_data : " + str(gyro_data))
                 process_gyro(gyro_data, timestamp)
         nr = nr + 1
         end = timer()
