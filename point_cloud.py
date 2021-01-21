@@ -27,7 +27,8 @@ import time
 import cv2
 import numpy as np
 import pyrealsense2 as rs
-from motion import *
+from motion.motion import theta, process_gyro, process_accel
+
 
 class AppState:
 
@@ -58,13 +59,17 @@ class AppState:
     def pivot(self):
         return self.translation + np.array((0, 0, self.distance), dtype=np.float32)
 
-
 state = AppState()
 
 # Configure gyro, accel, depth and color streams
 pipeline = rs.pipeline()
 config = rs.config()
 
+# Configuring streams at different rates
+# Accelerometer available FPS: {63, 250}Hz
+config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 250)
+# Gyroscope available FPS: {200,400}Hz
+config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 200)
 # enabling depth stream
 config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
 # enabling color stream
@@ -277,6 +282,26 @@ while True:
 
         depth_frame = frames.get_depth_frame()
         color_frame = frames.get_color_frame()
+
+        for frame in frames:
+            if frame.frame_number != depth_frame.frame_number and \
+                frame.frame_number != color_frame.frame_number:
+                motion = frame.as_motion_frame()
+                if motion and motion.get_profile().stream_type() == rs.stream.accel:
+                    # Accelerometer frame
+                    # Get accelerometer measurements
+                    accel_data = motion.get_motion_data()
+                    theta = process_accel(accel_data)
+                elif motion and motion.get_profile().stream_type() == rs.stream.gyro:
+                    # Gyro frame
+                    # Get the timestamp of current frame
+                    timestamp = motion.get_timestamp()
+                    # Get gyro measurements
+                    gyro_data = motion.get_motion_data()
+                    theta = process_gyro(gyro_data, timestamp)
+
+        # Getting motion frames
+        motion = frames.as_motion_frame()
 
         depth_frame = decimate.process(depth_frame)
 
