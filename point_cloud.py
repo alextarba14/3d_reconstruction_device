@@ -27,7 +27,7 @@ import time
 import cv2
 import numpy as np
 import pyrealsense2 as rs
-from motion.motion import theta, process_gyro, process_accel
+from motion.motion import process_gyro, process_accel
 
 
 class AppState:
@@ -38,6 +38,7 @@ class AppState:
         self.translation = np.array([0, 0, -1], dtype=np.float32)
         self.distance = 2
         self.prev_mouse = 0, 0
+        self.prev_position = 0, 0
         self.mouse_btns = [False, False, False]
         self.paused = False
         self.decimate = 1
@@ -285,23 +286,33 @@ while True:
 
         for frame in frames:
             if frame.frame_number != depth_frame.frame_number and \
-                frame.frame_number != color_frame.frame_number:
-                motion = frame.as_motion_frame()
-                if motion and motion.get_profile().stream_type() == rs.stream.accel:
+                    frame.frame_number != color_frame.frame_number:
+                motion_frame = frame.as_motion_frame()
+                if motion_frame and motion_frame.get_profile().stream_type() == rs.stream.accel:
                     # Accelerometer frame
                     # Get accelerometer measurements
-                    accel_data = motion.get_motion_data()
+                    accel_data = motion_frame.get_motion_data()
+
+                    h, w = out.shape[:2]
+
+                    # getting movement
+                    dx, dy = accel_data.x - state.prev_position[0], accel_data.y - state.prev_position[1]
+
+                    # updating view with new movement values
+                    state.yaw += float(dx) / w * 2
+                    state.pitch -= float(dy) / h * 2
+
+                    # updating current position
+                    state.prev_position = (accel_data.x , accel_data.y)
+
                     theta = process_accel(accel_data)
-                elif motion and motion.get_profile().stream_type() == rs.stream.gyro:
+                elif motion_frame and motion_frame.get_profile().stream_type() == rs.stream.gyro:
                     # Gyro frame
                     # Get the timestamp of current frame
-                    timestamp = motion.get_timestamp()
+                    timestamp = motion_frame.get_timestamp()
                     # Get gyro measurements
-                    gyro_data = motion.get_motion_data()
+                    gyro_data = motion_frame.get_motion_data()
                     theta = process_gyro(gyro_data, timestamp)
-
-        # Getting motion frames
-        motion = frames.as_motion_frame()
 
         depth_frame = decimate.process(depth_frame)
 
@@ -334,9 +345,9 @@ while True:
 
     out.fill(0)
 
-    grid(out, (0, 0.5, 1), size=1, n=10)
+    # grid(out, (0, 0.5, 1), size=1, n=10)
     frustum(out, depth_intrinsics)
-    axes(out, view([0, 0, 0]), state.rotation, size=0.1, thickness=1)
+    # axes(out, view([0, 0, 0]), state.rotation, size=0.1, thickness=1)
 
     if not state.scale or out.shape[:2] == (h, w):
         pointcloud(out, verts, texcoords, color_source)
