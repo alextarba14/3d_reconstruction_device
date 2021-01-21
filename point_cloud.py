@@ -27,8 +27,8 @@ import time
 import cv2
 import numpy as np
 import pyrealsense2 as rs
-from motion.motion import process_gyro, process_accel
-
+from motion import process_gyro, process_accel
+from angle import Angle
 
 class AppState:
 
@@ -91,6 +91,8 @@ decimate = rs.decimation_filter()
 decimate.set_option(rs.option.filter_magnitude, 2 ** state.decimate)
 colorizer = rs.colorizer()
 
+max = 0
+min = 0
 
 def mouse_cb(event, x, y, flags, param):
 
@@ -274,7 +276,6 @@ def pointcloud(out, verts, texcoords, color, painter=True):
 
 
 out = np.empty((h, w, 3), dtype=np.uint8)
-
 while True:
     # Grab camera data
     if not state.paused:
@@ -284,6 +285,7 @@ while True:
         depth_frame = frames.get_depth_frame()
         color_frame = frames.get_color_frame()
 
+        theta = Angle(0, 0, 0)
         for frame in frames:
             if frame.frame_number != depth_frame.frame_number and \
                     frame.frame_number != color_frame.frame_number:
@@ -292,19 +294,6 @@ while True:
                     # Accelerometer frame
                     # Get accelerometer measurements
                     accel_data = motion_frame.get_motion_data()
-
-                    h, w = out.shape[:2]
-
-                    # getting movement
-                    dx, dy = accel_data.x - state.prev_position[0], accel_data.y - state.prev_position[1]
-
-                    # updating view with new movement values
-                    state.yaw += float(dx) / w * 2
-                    state.pitch -= float(dy) / h * 2
-
-                    # updating current position
-                    state.prev_position = (accel_data.x , accel_data.y)
-
                     theta = process_accel(accel_data)
                 elif motion_frame and motion_frame.get_profile().stream_type() == rs.stream.gyro:
                     # Gyro frame
@@ -313,6 +302,18 @@ while True:
                     # Get gyro measurements
                     gyro_data = motion_frame.get_motion_data()
                     theta = process_gyro(gyro_data, timestamp)
+
+                h, w = out.shape[:2]
+
+                # getting movement
+                dx, dy = theta.x - state.prev_position[0], theta.y - state.prev_position[1]
+
+                # updating view with new movement values
+                state.yaw += float(dx)
+                state.pitch -= float(dy)
+
+                # updating current position
+                state.prev_position = (theta.x, theta.y)
 
         depth_frame = decimate.process(depth_frame)
 
@@ -344,6 +345,7 @@ while True:
     now = time.time()
 
     out.fill(0)
+
 
     # grid(out, (0, 0.5, 1), size=1, n=10)
     frustum(out, depth_intrinsics)
