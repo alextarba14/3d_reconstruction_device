@@ -1,11 +1,4 @@
-# License: Apache 2.0. See LICENSE file in root directory.
-# Copyright(c) 2015-2017 Intel Corporation. All Rights Reserved.
-
 """
-OpenCV and Numpy Point cloud Software Renderer
-This sample is mostly for demonstration and educational purposes.
-It really doesn't offer the quality or performance that can be
-achieved with hardware acceleration.
 Usage:
 ------
 Mouse:
@@ -91,6 +84,7 @@ decimate = rs.decimation_filter()
 decimate.set_option(rs.option.filter_magnitude, 2 ** state.decimate)
 colorizer = rs.colorizer()
 
+# used to prevent false camera rotation
 first = True
 
 def mouse_cb(event, x, y, flags, param):
@@ -273,8 +267,9 @@ def pointcloud(out, verts, texcoords, color, painter=True):
     # perform uv-mapping
     out[i[m], j[m]] = color[u[m], v[m]]
 
-
+# initializing empty 3D array
 out = np.empty((h, w, 3), dtype=np.uint8)
+
 while True:
     # Grab camera data
     if not state.paused:
@@ -348,6 +343,7 @@ while True:
     # Render
     now = time.time()
 
+    # refreshing output
     out.fill(0)
 
 
