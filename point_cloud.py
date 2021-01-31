@@ -91,8 +91,7 @@ decimate = rs.decimation_filter()
 decimate.set_option(rs.option.filter_magnitude, 2 ** state.decimate)
 colorizer = rs.colorizer()
 
-max = 0
-min = 0
+first = True
 
 def mouse_cb(event, x, y, flags, param):
 
@@ -210,7 +209,7 @@ def axes(out, pos, rotation=np.eye(3), size=0.075, thickness=2):
            np.dot((size, 0, 0), rotation), (0, 0, 0xff), thickness)
 
 
-def frustum(out, intrinsics, color=(0x40, 0x40, 0x40)):
+def frustum(out, intrinsics, color=(0xF0, 0xF0, 0xF0)):
     """draw camera's frustum"""
     orig = view([0, 0, 0])
     w, h = intrinsics.width, intrinsics.height
@@ -305,12 +304,17 @@ while True:
 
                 h, w = out.shape[:2]
 
+                # Getting first rotation information in order to prevent
+                # a false rotation because the previous positions were 0,0
+                if first:
+                    first = False
+                    state.prev_position = (theta.x, theta.y)
                 # getting movement
                 dx, dy = theta.x - state.prev_position[0], theta.y - state.prev_position[1]
 
                 # updating view with new movement values
-                state.yaw += float(dx)
-                state.pitch -= float(dy)
+                state.yaw += float(dy)
+                state.pitch -= float(dx)
 
                 # updating current position
                 state.prev_position = (theta.x, theta.y)
