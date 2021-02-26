@@ -76,6 +76,12 @@
 ## 6. Python development
 * Copy the .so objects from `librealsens/build/wrappers/python/` in the same directory as the python file when you want to use the **pyrealsense2** package.
 
+OR install inside one virtual environment the following packages:
+  ```
+    pip install opencv-python
+    pip install pyrealsense2
+  ```
+
 ## 7. Turn on the camera
 * Connect your IntelRealsense D435i to the USB port and then open a terminal and type:
 `realsense-viewer` <br/>
