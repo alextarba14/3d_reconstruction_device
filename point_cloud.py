@@ -23,6 +23,7 @@ import pyrealsense2 as rs
 from motion import process_gyro, process_accel
 from angle import Angle
 
+
 class AppState:
 
     def __init__(self, *args, **kwargs):
@@ -53,6 +54,7 @@ class AppState:
     def pivot(self):
         return self.translation + np.array((0, 0, self.distance), dtype=np.float32)
 
+
 state = AppState()
 
 WIDTH = 1280
@@ -76,7 +78,7 @@ imu_pipeline = rs.pipeline()
 imu_config = rs.config()
 # Configuring streams at different rates
 # Accelerometer available FPS: {63, 250}Hz
-imu_config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 63) # acceleration
+imu_config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 63)  # acceleration
 # Gyroscope available FPS: {200,400}Hz
 imu_config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 200)  # gyroscope
 imu_profile = imu_pipeline.start(imu_config)
@@ -96,8 +98,8 @@ colorizer = rs.colorizer()
 # used to prevent false camera rotation
 first = True
 
-def mouse_cb(event, x, y, flags, param):
 
+def mouse_cb(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN:
         state.mouse_btns[0] = True
 
@@ -135,7 +137,7 @@ def mouse_cb(event, x, y, flags, param):
             state.translation -= np.dot(state.rotation, dp)
 
         elif state.mouse_btns[2]:
-            dz = math.sqrt(dx**2 + dy**2) * math.copysign(0.01, -dy)
+            dz = math.sqrt(dx ** 2 + dy ** 2) * math.copysign(0.01, -dy)
             state.translation[2] += dz
             state.distance -= dz
 
@@ -155,12 +157,12 @@ cv2.setMouseCallback(state.WIN_NAME, mouse_cb)
 def project(v):
     """project 3d vector array to 2d"""
     h, w = out.shape[:2]
-    view_aspect = float(h)/w
+    view_aspect = float(h) / w
 
     # ignore divide by zero for invalid depth
     with np.errstate(divide='ignore', invalid='ignore'):
         proj = v[:, :-1] / v[:, -1, np.newaxis] * \
-            (w*view_aspect, h) + (w/2.0, h/2.0)
+               (w * view_aspect, h) + (w / 2.0, h / 2.0)
 
     # near clipping
     znear = 0.03
@@ -185,19 +187,21 @@ def line3d(out, pt1, pt2, color=(0x80, 0x80, 0x80), thickness=1):
     inside, p0, p1 = cv2.clipLine(rect, p0, p1)
     if inside:
         cv2.line(out, p0, p1, color, thickness, cv2.LINE_AA)
+    else:
+        print("Outside: (" + str(p0) + ", " + str(p1) + ")")
 
 
-def grid(out, pos, rotation=np.eye(3), size=1, n=10, color=(0x80, 0x80, 0x80)):
+def grid(out, pos, rotation=np.eye(3), size=1, n=20, color=(0x80, 0x80, 0x80)):
     """draw a grid on xz plane"""
     pos = np.array(pos)
     s = size / float(n)
     s2 = 0.5 * size
-    for i in range(0, n+1):
-        x = -s2 + i*s
+    for i in range(0, n + 1):
+        x = -s2 + i * s
         line3d(out, view(pos + np.dot((x, 0, -s2), rotation)),
                view(pos + np.dot((x, 0, s2), rotation)), color)
-    for i in range(0, n+1):
-        z = -s2 + i*s
+    for i in range(0, n + 1):
+        z = -s2 + i * s
         line3d(out, view(pos + np.dot((-s2, 0, z), rotation)),
                view(pos + np.dot((s2, 0, z), rotation)), color)
 
@@ -249,7 +253,7 @@ def pointcloud(out, verts, texcoords, color, painter=True):
         proj = project(view(verts))
 
     if state.scale:
-        proj *= 0.5**state.decimate
+        proj *= 0.5 ** state.decimate
 
     h, w = out.shape[:2]
 
@@ -270,11 +274,12 @@ def pointcloud(out, verts, texcoords, color, painter=True):
     else:
         v, u = (texcoords * (cw, ch) + 0.5).astype(np.uint32).T
     # clip texcoords to image
-    np.clip(u, 0, ch-1, out=u)
-    np.clip(v, 0, cw-1, out=v)
+    np.clip(u, 0, ch - 1, out=u)
+    np.clip(v, 0, cw - 1, out=v)
 
     # perform uv-mapping
     out[i[m], j[m]] = color[u[m], v[m]]
+
 
 # initializing empty 3D array
 out = np.empty((h, w, 3), dtype=np.uint8)
@@ -355,28 +360,27 @@ while True:
     # refreshing output
     out.fill(0)
 
-
-    # grid(out, (0, 0.5, 1), size=1, n=10)
-    frustum(out, depth_intrinsics)
+    grid(out, (0, 0.5, 1), size=1, n=10)
+    # frustum(out, depth_intrinsics)
     # axes(out, view([0, 0, 0]), state.rotation, size=0.1, thickness=1)
 
-    if not state.scale or out.shape[:2] == (h, w):
-        pointcloud(out, verts, texcoords, color_source)
-    else:
-        tmp = np.zeros((h, w, 3), dtype=np.uint8)
-        pointcloud(tmp, verts, texcoords, color_source)
-        tmp = cv2.resize(
-            tmp, out.shape[:2][::-1], interpolation=cv2.INTER_NEAREST)
-        np.putmask(out, tmp > 0, tmp)
+    # if not state.scale or out.shape[:2] == (h, w):
+    #     pointcloud(out, verts, texcoords, color_source)
+    # else:
+    #     tmp = np.zeros((h, w, 3), dtype=np.uint8)
+    #     pointcloud(tmp, verts, texcoords, color_source)
+    #     tmp = cv2.resize(
+    #         tmp, out.shape[:2][::-1], interpolation=cv2.INTER_NEAREST)
+    #     np.putmask(out, tmp > 0, tmp)
 
-    if any(state.mouse_btns):
-        axes(out, view(state.pivot), state.rotation, thickness=4)
+    # if any(state.mouse_btns):
+    #     axes(out, view(state.pivot), state.rotation, thickness=4)
 
     dt = time.time() - now
 
     cv2.setWindowTitle(
         state.WIN_NAME, "RealSense (%dx%d) %dFPS (%.2fms) %s" %
-        (w, h, 1.0/dt, dt*1000, "PAUSED" if state.paused else ""))
+                        (w, h, 1.0 / dt, dt * 1000, "PAUSED" if state.paused else ""))
 
     cv2.imshow(state.WIN_NAME, out)
     key = cv2.waitKey(1)

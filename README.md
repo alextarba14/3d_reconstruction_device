@@ -232,4 +232,12 @@ opencv 4.1.1
 ## IDE
 1.52.1 ea3859d4ba2f3e577a159bc91e3074c5d85c0523 arm64
 
+## Refresh rate
+Different refresh rates {6, 15, 30} have different level of details for depth and color.
+```python
+WIDTH = 1280
+HEIGHT = 720
+REFRESH_RATE = 30
+```
+
 
