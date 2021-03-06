@@ -55,14 +55,18 @@ class AppState:
 
 state = AppState()
 
+WIDTH = 1280
+HEIGHT = 720
+REFRESH_RATE = 15
+
 # Configure gyro, accel, depth and color streams
 pipeline = rs.pipeline()
 config = rs.config()
 
 # enabling depth stream
-config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 15)
+config.enable_stream(rs.stream.depth, WIDTH, HEIGHT, rs.format.z16, REFRESH_RATE)
 # enabling color stream
-config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 15)
+config.enable_stream(rs.stream.color, WIDTH, HEIGHT, rs.format.bgr8, REFRESH_RATE)
 
 # Start streaming
 pipeline.start(config)
