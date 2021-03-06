@@ -240,4 +240,12 @@ HEIGHT = 720
 REFRESH_RATE = 30
 ```
 
+## Trajectory reference
+
+When moving camera on the floor from right to left or vice-versa, the `accel_data.x` modifies.
+When moving facing camera down or up on top of the tripod, the `accel_data.z` modifies.
+When lifting camera, or putting it down, the `accel_data.y` modifies. \
+Reference for axis:
+https://www.intelrealsense.com/how-to-getting-imu-data-from-d435i-and-t265/
+
 
