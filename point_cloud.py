@@ -59,18 +59,23 @@ state = AppState()
 pipeline = rs.pipeline()
 config = rs.config()
 
-# Configuring streams at different rates
-# Accelerometer available FPS: {63, 250}Hz
-config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 250)
-# Gyroscope available FPS: {200,400}Hz
-config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 200)
 # enabling depth stream
-config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
+config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 15)
 # enabling color stream
-config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
+config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 15)
 
 # Start streaming
 pipeline.start(config)
+
+# Create a different pipeline for IMU
+imu_pipeline = rs.pipeline()
+imu_config = rs.config()
+# Configuring streams at different rates
+# Accelerometer available FPS: {63, 250}Hz
+imu_config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 63) # acceleration
+# Gyroscope available FPS: {200,400}Hz
+imu_config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 200)  # gyroscope
+imu_profile = imu_pipeline.start(imu_config)
 
 # Get stream profile and camera intrinsics
 profile = pipeline.get_active_profile()
@@ -280,39 +285,39 @@ while True:
         color_frame = frames.get_color_frame()
 
         theta = Angle(0, 0, 0)
-        for frame in frames:
-            if frame.frame_number != depth_frame.frame_number and \
-                    frame.frame_number != color_frame.frame_number:
-                motion_frame = frame.as_motion_frame()
-                if motion_frame and motion_frame.get_profile().stream_type() == rs.stream.accel:
-                    # Accelerometer frame
-                    # Get accelerometer measurements
-                    accel_data = motion_frame.get_motion_data()
-                    theta = process_accel(accel_data)
-                elif motion_frame and motion_frame.get_profile().stream_type() == rs.stream.gyro:
-                    # Gyro frame
-                    # Get the timestamp of current frame
-                    timestamp = motion_frame.get_timestamp()
-                    # Get gyro measurements
-                    gyro_data = motion_frame.get_motion_data()
-                    theta = process_gyro(gyro_data, timestamp)
 
-                h, w = out.shape[:2]
+        imu_frames = imu_pipeline.wait_for_frames()
+        for frame in imu_frames:
+            motion_frame = frame.as_motion_frame()
+            if motion_frame and motion_frame.get_profile().stream_type() == rs.stream.accel:
+                # Accelerometer frame
+                # Get accelerometer measurements
+                accel_data = motion_frame.get_motion_data()
+                theta = process_accel(accel_data)
+            elif motion_frame and motion_frame.get_profile().stream_type() == rs.stream.gyro:
+                # Gyro frame
+                # Get the timestamp of current frame
+                timestamp = motion_frame.get_timestamp()
+                # Get gyro measurements
+                gyro_data = motion_frame.get_motion_data()
+                theta = process_gyro(gyro_data, timestamp)
 
-                # Getting first rotation information in order to prevent
-                # a false rotation because the previous positions were 0,0
-                if first:
-                    first = False
-                    state.prev_position = (theta.x, theta.y)
-                # getting movement
-                dx, dy = theta.x - state.prev_position[0], theta.y - state.prev_position[1]
+            h, w = out.shape[:2]
 
-                # updating view with new movement values
-                state.yaw += float(dy)
-                state.pitch -= float(dx)
-
-                # updating current position
+            # Getting first rotation information in order to prevent
+            # a false rotation because the previous positions were 0,0
+            if first:
+                first = False
                 state.prev_position = (theta.x, theta.y)
+            # getting movement
+            dx, dy = theta.x - state.prev_position[0], theta.y - state.prev_position[1]
+
+            # updating view with new movement values
+            state.yaw += float(dy)
+            state.pitch -= float(dx)
+
+            # updating current position
+            state.prev_position = (theta.x, theta.y)
 
         depth_frame = decimate.process(depth_frame)
 
