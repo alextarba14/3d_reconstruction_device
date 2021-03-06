@@ -393,7 +393,10 @@ while True:
     key = cv2.waitKey(1)
 
     if key == ord("r"):
-        state.reset()
+        # Refresh view
+        state = AppState()
+        out.fill(0)
+        grid(out, (0.2, 0, 0.2), size=1, n=20)
 
     if key == ord("p"):
         state.paused ^= True
@@ -406,10 +409,7 @@ while True:
         state.scale ^= True
 
     if key == ord("c"):
-        # Refresh view
-        state = AppState()
-        out.fill(0)
-        grid(out, (0.2, 0, 0.2), size=1, n=20)
+        state.color ^= True
 
 
     if key == ord("s"):
