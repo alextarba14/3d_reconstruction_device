@@ -191,6 +191,11 @@ def line3d(out, pt1, pt2, color=(0x80, 0x80, 0x80), thickness=1):
         print("Outside: (" + str(p0) + ", " + str(p1) + ")")
 
 
+def point3d(out, point, color=(0x00, 0xFF, 0x00), thickness=4):
+    """Draw a 3D point on the view."""
+    line3d(out, point, point, color, thickness)
+
+
 def grid(out, pos, rotation=np.eye(3), size=1, n=20, color=(0x80, 0x80, 0x80)):
     """draw a grid on xz plane"""
     pos = np.array(pos)
@@ -361,7 +366,8 @@ while True:
     # refreshing output
     # out.fill(0)
 
-
+    orig = view([0, 0, 0])
+    point3d(out, orig)
     # frustum(out, depth_intrinsics)
     # axes(out, view([0, 0, 0]), state.rotation, size=0.1, thickness=1)
 
