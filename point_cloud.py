@@ -283,6 +283,7 @@ def pointcloud(out, verts, texcoords, color, painter=True):
 
 # initializing empty 3D array
 out = np.empty((h, w, 3), dtype=np.uint8)
+grid(out, (0.2, 0, 0.2), size=1, n=20)
 
 while True:
     # Grab camera data
@@ -358,9 +359,9 @@ while True:
     now = time.time()
 
     # refreshing output
-    out.fill(0)
+    # out.fill(0)
 
-    grid(out, (0, 0.5, 1), size=1, n=10)
+
     # frustum(out, depth_intrinsics)
     # axes(out, view([0, 0, 0]), state.rotation, size=0.1, thickness=1)
 
@@ -399,7 +400,11 @@ while True:
         state.scale ^= True
 
     if key == ord("c"):
-        state.color ^= True
+        # Refresh view
+        state = AppState()
+        out.fill(0)
+        grid(out, (0.2, 0, 0.2), size=1, n=20)
+
 
     if key == ord("s"):
         cv2.imwrite('./out.png', out)
