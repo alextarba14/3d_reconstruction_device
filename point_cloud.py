@@ -32,7 +32,7 @@ class AppState:
         self.translation = np.array([0, 0, -1], dtype=np.float32)
         self.distance = 2
         self.prev_mouse = 0, 0
-        self.prev_position = 0, 0
+        self.prev_position = 0, 0, 0
         self.mouse_btns = [False, False, False]
         self.paused = False
         self.decimate = 1
@@ -197,18 +197,32 @@ def point3d(out, point, color=(0x00, 0xFF, 0x00), thickness=4):
 
 
 def grid(out, pos, rotation=np.eye(3), size=1, n=20, color=(0x80, 0x80, 0x80)):
-    """draw a grid on xz plane"""
+    """Draw a grid on xyz plane"""
     pos = np.array(pos)
     s = size / float(n)
     s2 = 0.5 * size
+
+    """draw a grid on xz plane"""
     for i in range(0, n + 1):
         x = -s2 + i * s
         line3d(out, view(pos + np.dot((x, 0, -s2), rotation)),
                view(pos + np.dot((x, 0, s2), rotation)), color)
+
+    z = 0
     for i in range(0, n + 1):
         z = -s2 + i * s
         line3d(out, view(pos + np.dot((-s2, 0, z), rotation)),
                view(pos + np.dot((s2, 0, z), rotation)), color)
+
+    """draw a grid on xy plane"""
+    for i in range(0, n + 1):
+        y = -0.5 - s2 + i * s
+        line3d(out, view(pos + np.dot((-s2, y, z), rotation)),
+               view(pos + np.dot((s2, y, z), rotation)), color)
+    for i in range(0, n + 1):
+        x = - s2 + i * s
+        line3d(out, view(pos + np.dot((x,-1, z), rotation)),
+               view(pos + np.dot((x,0, z), rotation)), color)
 
 
 def axes(out, pos, rotation=np.eye(3), size=0.075, thickness=2):
@@ -288,7 +302,7 @@ def pointcloud(out, verts, texcoords, color, painter=True):
 
 # initializing empty 3D array
 out = np.empty((h, w, 3), dtype=np.uint8)
-grid(out, (0.2, 0, 0.2), size=1, n=20)
+grid(out, (0.2, 0, 0.2), size=1, n=30)
 
 while True:
     # Grab camera data
@@ -323,16 +337,18 @@ while True:
             # a false rotation because the previous positions were 0,0
             if first:
                 first = False
-                state.prev_position = (theta.x, theta.y)
+                state.prev_position = (theta.x, theta.y, theta.z)
             # getting movement
-            dx, dy = theta.x - state.prev_position[0], theta.y - state.prev_position[1]
+            dx, dy, dz = theta.x - state.prev_position[0], theta.y - state.prev_position[1], theta.z - \
+                         state.prev_position[2]
 
             # updating view with new movement values
             state.yaw += float(dy)
             state.pitch -= float(dx)
+            state.translation[2] += dz
 
             # updating current position
-            state.prev_position = (theta.x, theta.y)
+            state.prev_position = (theta.x, theta.y, theta.z)
 
         depth_frame = decimate.process(depth_frame)
 
@@ -396,7 +412,7 @@ while True:
         # Refresh view
         state = AppState()
         out.fill(0)
-        grid(out, (0.2, 0, 0.2), size=1, n=20)
+        grid(out, (0.2, 0, 0.2), size=1, n=30)
 
     if key == ord("p"):
         state.paused ^= True
@@ -410,7 +426,6 @@ while True:
 
     if key == ord("c"):
         state.color ^= True
-
 
     if key == ord("s"):
         cv2.imwrite('./out.png', out)
