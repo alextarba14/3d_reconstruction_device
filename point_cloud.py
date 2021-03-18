@@ -304,9 +304,10 @@ def pointcloud(out, verts, texcoords, color, painter=True):
 out = np.empty((h, w, 3), dtype=np.uint8)
 grid(out, (0.2, 0, 0.2), size=1, n=30)
 
-frame_count = 0
-accel_data_array = []
-gyro_data_array = []
+threshold = 5
+frame_count = -1
+accel_data_array = [[0 for x in range(3)] for y in range(threshold)]
+gyro_data_array = [[0 for x in range(3)] for y in range(threshold)]
 while True:
     # Grab camera data
     if not state.paused:
@@ -321,13 +322,15 @@ while True:
         theta = Angle(0, 0, 0)
 
         imu_frames = imu_pipeline.wait_for_frames()
+        index = frame_count % threshold
+
         for frame in imu_frames:
             motion_frame = frame.as_motion_frame()
             if motion_frame and motion_frame.get_profile().stream_type() == rs.stream.accel:
                 # Accelerometer frame
                 # Get accelerometer measurements
                 accel_data = motion_frame.get_motion_data()
-                accel_data_array.append(accel_data)
+                accel_data_array[index] = [accel_data.x, accel_data.y, accel_data.z]
                 # print(accel_data)
             elif motion_frame and motion_frame.get_profile().stream_type() == rs.stream.gyro:
                 # Gyro frame
@@ -335,7 +338,7 @@ while True:
                 timestamp = motion_frame.get_timestamp()
                 # Get gyro measurements
                 gyro_data = motion_frame.get_motion_data()
-                gyro_data_array.append(gyro_data)
+                gyro_data_array[index] = [gyro_data.x, gyro_data.y, gyro_data.z]
                 # print(gyro_data)
 
             h, w = out.shape[:2]
@@ -357,10 +360,10 @@ while True:
             # updating current position
             # state.prev_position = (theta.x, theta.y, theta.z)
 
-        if frame_count % 5 ==0:
-            print("Frame count is: ", frame_count)
-            print("Length of accel_data: ", len(accel_data_array))
-            print("Length of gyro_data: ", len(gyro_data_array))
+        if index == 0:
+            print("Frame count:", frame_count)
+            print("Accel_data array:", accel_data_array)
+            print("Gyro_data array:", gyro_data_array)
         depth_frame = decimate.process(depth_frame)
 
         # Grab new intrinsics (may be changed by decimation)
