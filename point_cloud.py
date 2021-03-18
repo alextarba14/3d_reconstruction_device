@@ -21,6 +21,7 @@ import cv2
 import numpy as np
 import pyrealsense2 as rs
 from motion import process_gyro, process_accel
+from mathematics.matrix import get_matrix_average
 from angle import Angle
 
 
@@ -362,8 +363,11 @@ while True:
 
         if index == 0:
             print("Frame count:", frame_count)
-            print("Accel_data array:", accel_data_array)
-            print("Gyro_data array:", gyro_data_array)
+            accel_data_avg = get_matrix_average(threshold, 3, accel_data_array)
+            gyro_data_avg = get_matrix_average(threshold, 3, gyro_data_array)
+            print("Accel_data average:", accel_data_avg)
+            print("Gyro_data average:", gyro_data_avg)
+
         depth_frame = decimate.process(depth_frame)
 
         # Grab new intrinsics (may be changed by decimation)
