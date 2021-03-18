@@ -304,6 +304,9 @@ def pointcloud(out, verts, texcoords, color, painter=True):
 out = np.empty((h, w, 3), dtype=np.uint8)
 grid(out, (0.2, 0, 0.2), size=1, n=30)
 
+frame_count = 0
+accel_data_array = []
+gyro_data_array = []
 while True:
     # Grab camera data
     if not state.paused:
@@ -313,6 +316,8 @@ while True:
         depth_frame = frames.get_depth_frame()
         color_frame = frames.get_color_frame()
 
+        # incrementing frame count
+        frame_count = frame_count + 1
         theta = Angle(0, 0, 0)
 
         imu_frames = imu_pipeline.wait_for_frames()
@@ -322,34 +327,40 @@ while True:
                 # Accelerometer frame
                 # Get accelerometer measurements
                 accel_data = motion_frame.get_motion_data()
-                theta = process_accel(accel_data)
+                accel_data_array.append(accel_data)
+                # print(accel_data)
             elif motion_frame and motion_frame.get_profile().stream_type() == rs.stream.gyro:
                 # Gyro frame
                 # Get the timestamp of current frame
                 timestamp = motion_frame.get_timestamp()
                 # Get gyro measurements
                 gyro_data = motion_frame.get_motion_data()
-                theta = process_gyro(gyro_data, timestamp)
+                gyro_data_array.append(gyro_data)
+                # print(gyro_data)
 
             h, w = out.shape[:2]
 
             # Getting first rotation information in order to prevent
             # a false rotation because the previous positions were 0,0
-            if first:
-                first = False
-                state.prev_position = (theta.x, theta.y, theta.z)
-            # getting movement
-            dx, dy, dz = theta.x - state.prev_position[0], theta.y - state.prev_position[1], theta.z - \
-                         state.prev_position[2]
-
-            # updating view with new movement values
-            state.yaw += float(dy)
-            state.pitch -= float(dx)
-            state.translation[2] += dz
+            # if first:
+            #     first = False
+            #     state.prev_position = (theta.x, theta.y, theta.z)
+            # # getting movement
+            # dx, dy, dz = theta.x - state.prev_position[0], theta.y - state.prev_position[1], theta.z - \
+            #              state.prev_position[2]
+            #
+            # # updating view with new movement values
+            # state.yaw += float(dy)
+            # state.pitch -= float(dx)
+            # state.translation[2] += dz
 
             # updating current position
-            state.prev_position = (theta.x, theta.y, theta.z)
+            # state.prev_position = (theta.x, theta.y, theta.z)
 
+        if frame_count % 5 ==0:
+            print("Frame count is: ", frame_count)
+            print("Length of accel_data: ", len(accel_data_array))
+            print("Length of gyro_data: ", len(gyro_data_array))
         depth_frame = decimate.process(depth_frame)
 
         # Grab new intrinsics (may be changed by decimation)
