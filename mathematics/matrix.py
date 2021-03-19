@@ -60,6 +60,11 @@ def create_transformation_matrix(rotation_matrix, accel_data):
     for i in range(3):
         transf_mat[i][3] = accel_data[i]
 
+    # put zeros on the 4th line
+    transf_mat[3][0] = 0
+    transf_mat[3][1] = 0
+    transf_mat[3][2] = 0
+
     # put 1 in the bottom right corner
     transf_mat[3][3] = 1
 
