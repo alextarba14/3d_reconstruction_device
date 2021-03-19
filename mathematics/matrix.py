@@ -1,6 +1,15 @@
 import numpy as np
 import math
 
+def get_matrix_median(lines, columns, matrix):
+    matrix_transposed = np.array(matrix).transpose()
+    for j in range(columns):
+        matrix_transposed[j].sort()
+
+    matrix = matrix_transposed.transpose()
+
+    return matrix[(int)(lines/2)]
+
 
 def get_matrix_average(lines, columns, matrix):
     sum_vector = [0, 0, 0]
