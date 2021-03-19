@@ -143,3 +143,5 @@ pyrealsense2.cpython-36m-x86_64-linux-gnu.so.2.40
 pyrealsense2.cpython-36m-x86_64-linux-gnu.so.2.40.0
 
 .idea/*
+
+*.ply
