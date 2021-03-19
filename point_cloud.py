@@ -21,7 +21,9 @@ import cv2
 import numpy as np
 import pyrealsense2 as rs
 from motion import process_gyro, process_accel
-from mathematics.matrix import get_matrix_average, create_rotation_matrix, create_transformation_matrix
+from mathematics.matrix import get_matrix_average, create_rotation_matrix, create_transformation_matrix, get_matrix_median
+from mathematics.vector import get_difference_item
+from mathematics.transformations import apply_transformations
 from angle import Angle
 
 
@@ -308,7 +310,7 @@ grid(out, (0.2, 0, 0.2), size=1, n=30)
 vertices = None
 transf_matrices = None
 
-threshold = 5
+threshold = 10
 frame_count = -1
 accel_data_array = [[0 for x in range(3)] for y in range(threshold)]
 gyro_data_array = [[0 for x in range(3)] for y in range(threshold)]
@@ -336,7 +338,7 @@ while True:
                 # Accelerometer frame
                 # Get accelerometer measurements
                 accel_data = motion_frame.get_motion_data()
-                accel_data_array[index] = [accel_data.x, accel_data.y, accel_data.z]
+                accel_data_array[index] = get_difference_item(accel_data_array, accel_data, index)
                 # print(accel_data)
             elif motion_frame and motion_frame.get_profile().stream_type() == rs.stream.gyro:
                 # Gyro frame
@@ -397,25 +399,23 @@ while True:
             # the first frame
             vertices = verts
             transf_matrices = np.zeros((4, 4), dtype=np.float32)
-
             continue
 
         if index == 0:
             print("Frame count:", frame_count)
-            accel_data_avg = get_matrix_average(threshold, 3, accel_data_array)
+            accel_data_avg = get_matrix_median(threshold, 3, accel_data_array)
             gyro_data_avg = get_matrix_average(threshold, 3, gyro_data_array)
             rotation_matrix = create_rotation_matrix(gyro_data_avg)
             transf_mat = create_transformation_matrix(rotation_matrix, accel_data_avg)
-
+            points.export_to_ply(f'./out{mat_count}.ply', mapped_frame)
             # append to bigger array
             vertices = np.append(vertices, verts, axis=0)
             transf_matrices = np.append(transf_matrices, transf_mat, axis=0)
+
             mat_count = mat_count + 1
 
-            print("Gyro_data avg:", gyro_data_avg)
-
-        if mat_count == 10:
-            break
+        if mat_count == 2:
+            apply_transformations(vertices, transf_matrices, 2, 4)
 
 
     # Render
