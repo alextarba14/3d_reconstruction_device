@@ -21,7 +21,7 @@ import cv2
 import numpy as np
 import pyrealsense2 as rs
 from motion import process_gyro, process_accel
-from mathematics.matrix import get_matrix_average
+from mathematics.matrix import get_matrix_average, create_rotation_matrix, create_transformation_matrix
 from angle import Angle
 
 
@@ -305,10 +305,15 @@ def pointcloud(out, verts, texcoords, color, painter=True):
 out = np.empty((h, w, 3), dtype=np.uint8)
 grid(out, (0.2, 0, 0.2), size=1, n=30)
 
+vertices = None
+transf_matrices = None
+
 threshold = 5
 frame_count = -1
 accel_data_array = [[0 for x in range(3)] for y in range(threshold)]
 gyro_data_array = [[0 for x in range(3)] for y in range(threshold)]
+
+mat_count = 0
 while True:
     # Grab camera data
     if not state.paused:
@@ -361,13 +366,6 @@ while True:
             # updating current position
             # state.prev_position = (theta.x, theta.y, theta.z)
 
-        if index == 0:
-            print("Frame count:", frame_count)
-            accel_data_avg = get_matrix_average(threshold, 3, accel_data_array)
-            gyro_data_avg = get_matrix_average(threshold, 3, gyro_data_array)
-            print("Accel_data average:", accel_data_avg)
-            print("Gyro_data average:", gyro_data_avg)
-
         depth_frame = decimate.process(depth_frame)
 
         # Grab new intrinsics (may be changed by decimation)
@@ -393,6 +391,32 @@ while True:
         v, t = points.get_vertices(), points.get_texture_coordinates()
         verts = np.asanyarray(v).view(np.float32).reshape(-1, 3)  # xyz
         texcoords = np.asanyarray(t).view(np.float32).reshape(-1, 2)  # uv
+
+
+        if frame_count == 0:
+            # the first frame
+            vertices = verts
+            transf_matrices = np.zeros((4, 4), dtype=np.float32)
+
+            continue
+
+        if index == 0:
+            print("Frame count:", frame_count)
+            accel_data_avg = get_matrix_average(threshold, 3, accel_data_array)
+            gyro_data_avg = get_matrix_average(threshold, 3, gyro_data_array)
+            rotation_matrix = create_rotation_matrix(gyro_data_avg)
+            transf_mat = create_transformation_matrix(rotation_matrix, accel_data_avg)
+
+            # append to bigger array
+            vertices = np.append(vertices, verts, axis=0)
+            transf_matrices = np.append(transf_matrices, transf_mat, axis=0)
+            mat_count = mat_count + 1
+
+            print("Gyro_data avg:", gyro_data_avg)
+
+        if mat_count == 10:
+            break
+
 
     # Render
     now = time.time()
