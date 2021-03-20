@@ -22,7 +22,7 @@ import numpy as np
 import pyrealsense2 as rs
 from motion import process_gyro, process_accel
 from mathematics.matrix import get_matrix_average, create_rotation_matrix, create_transformation_matrix, get_matrix_median
-from mathematics.vector import get_difference_item
+from mathematics.vector import get_difference_item, get_texture_from_pointcloud
 from mathematics.transformations import apply_transformations
 from export.ply import export_numpy_array_to_ply, default_export_points
 from angle import Angle
@@ -313,7 +313,8 @@ out = np.empty((h, w, 3), dtype=np.uint8)
 grid(out, (0.2, 0, 0.2), size=1, n=30)
 
 vertices = []
-colors = []
+tex_coords = []
+color_frames = []
 transf_matrices_inverted = []
 
 threshold = 10
@@ -406,6 +407,8 @@ while True:
             # the first frame
             vertices.append(verts)
             transf_matrices_inverted.append(np.zeros((4, 4), dtype=np.float32))
+            color_frames.append(color_frame)
+            tex_coords.append(texcoords)
             continue
 
         if index == 0:
@@ -414,7 +417,7 @@ while True:
             gyro_data_avg = get_matrix_average(threshold, 3, gyro_data_array)
             rotation_matrix = create_rotation_matrix(gyro_data_avg)
             transf_mat = create_transformation_matrix(rotation_matrix, accel_data_avg)
-            points.export_to_ply(f'./out{mat_count}.ply', mapped_frame)
+            # points.export_to_ply(f'./out{mat_count}.ply', mapped_frame)
             file_name = f'original_out{mat_count}.ply'
             # default_export_points(points, file_name)
 
@@ -424,11 +427,19 @@ while True:
             # append to bigger lists
             vertices.append(verts)
             transf_matrices_inverted.append(inverse_transf_matrix)
+            color_frames.append(color_frame)
+            tex_coords.append(texcoords)
 
             mat_count = mat_count + 1
 
-        if mat_count == 3:
-            apply_transformations(vertices, transf_matrices_inverted, 3, 4)
+        if mat_count == 10:
+            updated_pointclouds = apply_transformations(vertices, transf_matrices_inverted, 10)
+            for index in range(len(updated_pointclouds)):
+                texture = get_texture_from_pointcloud(updated_pointclouds[index], tex_coords[index],color_frames[index])
+                # save the transformed pointcloud
+                file_name = f'transformed{index}.ply'
+                export_numpy_array_to_ply(updated_pointclouds[index], texture, file_name=file_name)
+            exit(1)
 
 
     # Render
