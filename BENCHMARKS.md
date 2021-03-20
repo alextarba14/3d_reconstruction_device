@@ -18,3 +18,7 @@
 |apply_transformations 1 pointcloud | 1.4153335094451904|
 |||
 |**Total time spent**| **79.34012293815613**|
+| | | 
+|get_vertices_and_texture_from_pointcloud| 2.6218369007110596|
+
+**get_vertices_and_texture_from_pointcloud** takes too much time and it is not suited to be used while getting the frames.
