@@ -22,3 +22,28 @@
 |get_vertices_and_texture_from_pointcloud| 2.6218369007110596|
 
 **get_vertices_and_texture_from_pointcloud** takes too much time and it is not suited to be used while getting the frames.
+
+## 20-03-2021 22:30
+### Applying n-1 transformations for each pointcloud
+- Inverting transformation matrix when computing it then storing it inverted in the list.
+- Avoiding multiplying with zero each time.
+- Indexing lists to get pointclouds.
+- Keeping color frames and texture coordinates in memory in order to get RGB information for each point.
+- Saving pointclouds to file after updates.
+
+|task|time_spent[s]|
+|----|-------------|
+|apply_transformations 10 pointclouds| 7.1543731689453125|
+|apply_transformations 9 pointclouds| 6.339238166809082|
+|apply_transformations 8 pointclouds| 5.847517251968384|
+|apply_transformations 7 pointclouds| 5.086743116378784|
+|apply_transformations 6 pointclouds| 4.435328483581543|
+|apply_transformations 5 pointclouds| 3.784731864929199|
+|apply_transformations 4 pointclouds| 2.964580535888672|
+|apply_transformations 3 pointclouds| 2.179731845855713|
+|apply_transformations 2 pointclouds| 1.4859611988067627|
+|apply_transformations 1 pointcloud | 0.7237105369567871|
+|||
+|**Total time spent**| **40.00211000442505**|
+| | | 
+|get_texture_from_pointcloud| 2.068113327026367|
