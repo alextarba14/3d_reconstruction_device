@@ -312,8 +312,9 @@ def pointcloud(out, verts, texcoords, color, painter=True):
 out = np.empty((h, w, 3), dtype=np.uint8)
 grid(out, (0.2, 0, 0.2), size=1, n=30)
 
-vertices = None
-transf_matrices = None
+vertices = []
+colors = []
+transf_matrices_inverted = []
 
 threshold = 10
 frame_count = -1
@@ -391,8 +392,9 @@ while True:
         else:
             mapped_frame, color_source = depth_frame, depth_colormap
 
-        points = pc.calculate(depth_frame)
+
         pc.map_to(mapped_frame)
+        points = pc.calculate(depth_frame)
 
         # Pointcloud data to arrays
         v, t = points.get_vertices(), points.get_texture_coordinates()
@@ -402,8 +404,8 @@ while True:
 
         if frame_count == 0:
             # the first frame
-            vertices = verts
-            transf_matrices = np.zeros((4, 4), dtype=np.float32)
+            vertices.append(verts)
+            transf_matrices_inverted.append(np.zeros((4, 4), dtype=np.float32))
             continue
 
         if index == 0:
@@ -412,17 +414,21 @@ while True:
             gyro_data_avg = get_matrix_average(threshold, 3, gyro_data_array)
             rotation_matrix = create_rotation_matrix(gyro_data_avg)
             transf_mat = create_transformation_matrix(rotation_matrix, accel_data_avg)
-            # points.export_to_ply(f'./out{mat_count}.ply', mapped_frame)
+            points.export_to_ply(f'./out{mat_count}.ply', mapped_frame)
             file_name = f'original_out{mat_count}.ply'
-            default_export_points(points, file_name)
-            # append to bigger array
-            vertices = np.append(vertices, verts, axis=0)
-            transf_matrices = np.append(transf_matrices, transf_mat, axis=0)
+            # default_export_points(points, file_name)
+
+            # invert transformation matrix in order to multiply points with the correct matrix
+            inverse_transf_matrix = np.linalg.inv(transf_mat)
+
+            # append to bigger lists
+            vertices.append(verts)
+            transf_matrices_inverted.append(inverse_transf_matrix)
 
             mat_count = mat_count + 1
 
         if mat_count == 3:
-            apply_transformations(vertices, transf_matrices, 3, 4)
+            apply_transformations(vertices, transf_matrices_inverted, 3, 4)
 
 
     # Render
