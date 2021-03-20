@@ -12,9 +12,9 @@ def apply_transform(pointcloud, matrix):
         i = i + 230400
 
 
-def apply_transformations(pointclouds, transf_matrices, length, matrix_decrement):
+def apply_transformations(pointclouds, transf_matrices, length):
     start_time_function = time.time()
-    print("Started at: ", start_time_function)
+    print("apply_transformations started at: ", start_time_function)
     # number of transformation matrices: length + 1 - first one is empty
     # a matrix has 4 lines => no_lines=  4*(length+1)
 
@@ -52,16 +52,11 @@ def apply_transformations(pointclouds, transf_matrices, length, matrix_decrement
         # update the pointcloud in memory
         pointclouds[pointcloud_index] = current_pointcloud
 
-        # save the transformed pointcloud
-        file_name = f'transformed{index}.ply'
-        export_numpy_array_to_ply(current_pointcloud, file_name=file_name)
-
         print(f'Stopped index: {index} after: ', time.time() - start_time_index)
 
         # decrement indexes
         index = index - 1
         pointcloud_index = pointcloud_index - 1
 
-    print("Stopped after: ", time.time() - start_time_function)
-    exit(1)
+    print("Ended after: ", time.time() - start_time_function)
     return pointclouds
