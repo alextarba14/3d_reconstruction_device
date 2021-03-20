@@ -24,8 +24,13 @@ from motion import process_gyro, process_accel
 from mathematics.matrix import get_matrix_average, create_rotation_matrix, create_transformation_matrix, get_matrix_median
 from mathematics.vector import get_difference_item
 from mathematics.transformations import apply_transformations
+from export.ply import export_numpy_array_to_ply, default_export_points
 from angle import Angle
+import cProfile
 
+import pandas as pd
+
+from pyntcloud import PyntCloud
 
 class AppState:
 
@@ -407,15 +412,17 @@ while True:
             gyro_data_avg = get_matrix_average(threshold, 3, gyro_data_array)
             rotation_matrix = create_rotation_matrix(gyro_data_avg)
             transf_mat = create_transformation_matrix(rotation_matrix, accel_data_avg)
-            points.export_to_ply(f'./out{mat_count}.ply', mapped_frame)
+            # points.export_to_ply(f'./out{mat_count}.ply', mapped_frame)
+            file_name = f'original_out{mat_count}.ply'
+            default_export_points(points, file_name)
             # append to bigger array
             vertices = np.append(vertices, verts, axis=0)
             transf_matrices = np.append(transf_matrices, transf_mat, axis=0)
 
             mat_count = mat_count + 1
 
-        if mat_count == 2:
-            apply_transformations(vertices, transf_matrices, 2, 4)
+        if mat_count == 3:
+            apply_transformations(vertices, transf_matrices, 3, 4)
 
 
     # Render
@@ -473,7 +480,9 @@ while True:
         cv2.imwrite('./out.png', out)
 
     if key == ord("e"):
-        points.export_to_ply('./out.ply', mapped_frame)
+        default_export_points(points)
+
+
 
     if key in (27, ord("q")) or cv2.getWindowProperty(state.WIN_NAME, cv2.WND_PROP_AUTOSIZE) < 0:
         break
