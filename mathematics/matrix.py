@@ -65,9 +65,24 @@ def create_transformation_matrix(rotation_matrix, accel_data):
         for j in range(3):
             transf_mat[i][j] = rotation_matrix[i][j]
 
-    # append translation as the last column
-    for i in range(3):
-        transf_mat[i][3] = accel_data[i]
+    # multiplying rotation matrix with translation matrix
+    # Reference: http://www.fastgraph.com/makegames/3drotation/
+
+    # accel_data = [x,y,z]
+    # transf_mat[0][3] = R11*x + R12*y +R13*z
+    transf_mat[0][3] = transf_mat[0][0] * accel_data[0] + \
+                       transf_mat[0][1] * accel_data[1] + \
+                       transf_mat[0][2] * accel_data[2]
+
+    # transf_mat[1][3] = R21*x + R22*y +R23*z
+    transf_mat[1][3] = transf_mat[1][0] * accel_data[0] + \
+                       transf_mat[1][1] * accel_data[1] + \
+                       transf_mat[1][2] * accel_data[2]
+
+    # transf_mat[2][3] = R31*x + R32*y +R33*z
+    transf_mat[2][3] = transf_mat[2][0] * accel_data[0] + \
+                       transf_mat[2][1] * accel_data[1] + \
+                       transf_mat[2][2] * accel_data[2]
 
     # put zeros on the 4th line
     transf_mat[3][0] = 0
