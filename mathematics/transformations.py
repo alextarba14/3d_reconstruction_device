@@ -12,20 +12,17 @@ def apply_transform(pointcloud, matrix):
         i = i + 230400
 
 
-def apply_transformations(pointclouds, transf_matrices, length):
+def apply_transformations(pointclouds, transf_matrices):
     start_time_function = time.time()
     print("apply_transformations started at: ", start_time_function)
     # number of transformation matrices: length + 1 - first one is empty
     # a matrix has 4 lines => no_lines=  4*(length+1)
 
-    # initial pointcloud + length
-    pointcloud_index = len(pointclouds) - 1
-
-    index = length
+    index = len(pointclouds) - 1
     while index > 0:
         start_time_index = time.time()
         print(f'Started index: {index} at: ', start_time_index)
-        current_pointcloud = pointclouds[pointcloud_index]
+        current_pointcloud = pointclouds[index]
         pc_length = len(current_pointcloud)
 
         # append 1 at the end
@@ -40,9 +37,10 @@ def apply_transformations(pointclouds, transf_matrices, length):
             current_transf_matrix = transf_matrices[j]
 
             for i in range(pc_length):
+                # avoid multiplication by zero
                 if current_pointcloud[i][2] != 0:
-                    # avoid multiplication by zero
-                    current_pointcloud[i] = current_pointcloud[i].dot(current_transf_matrix)
+                    # multiply Tr^(-1)*p' = p (obtaining points based referenced at previous system information)
+                    current_pointcloud[i] = current_transf_matrix.dot(current_pointcloud[i])
 
             j = j - 1
             print(f'Stopped j: {j} after: ', time.time() - start_time)
@@ -50,13 +48,12 @@ def apply_transformations(pointclouds, transf_matrices, length):
         # removing the last column since it was added to perform dot product between vector[1x(3+1)] and transform matrix[4x4]
         current_pointcloud = np.delete(current_pointcloud, 3, axis=1)
         # update the pointcloud in memory
-        pointclouds[pointcloud_index] = current_pointcloud
+        pointclouds[index] = current_pointcloud
 
         print(f'Stopped index: {index} after: ', time.time() - start_time_index)
 
         # decrement indexes
         index = index - 1
-        pointcloud_index = pointcloud_index - 1
 
     print("Ended after: ", time.time() - start_time_function)
     return pointclouds
