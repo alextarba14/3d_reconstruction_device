@@ -21,7 +21,8 @@ import cv2
 import numpy as np
 import pyrealsense2 as rs
 from motion import process_gyro, process_accel
-from mathematics.matrix import get_matrix_average, create_rotation_matrix, create_transformation_matrix, get_matrix_median
+from mathematics.matrix import get_matrix_average, create_rotation_matrix, create_transformation_matrix,\
+    get_matrix_median
 from mathematics.vector import get_difference_item, get_texture_from_pointcloud
 from mathematics.transformations import apply_transformations
 from export.ply import export_numpy_array_to_ply, default_export_points
@@ -31,6 +32,7 @@ import cProfile
 import pandas as pd
 
 from pyntcloud import PyntCloud
+
 
 class AppState:
 
@@ -229,8 +231,8 @@ def grid(out, pos, rotation=np.eye(3), size=1, n=20, color=(0x80, 0x80, 0x80)):
                view(pos + np.dot((s2, y, z), rotation)), color)
     for i in range(0, n + 1):
         x = - s2 + i * s
-        line3d(out, view(pos + np.dot((x,-1, z), rotation)),
-               view(pos + np.dot((x,0, z), rotation)), color)
+        line3d(out, view(pos + np.dot((x, -1, z), rotation)),
+               view(pos + np.dot((x, 0, z), rotation)), color)
 
 
 def axes(out, pos, rotation=np.eye(3), size=0.075, thickness=2):
@@ -393,7 +395,6 @@ while True:
         else:
             mapped_frame, color_source = depth_frame, depth_colormap
 
-
         pc.map_to(mapped_frame)
         points = pc.calculate(depth_frame)
 
@@ -401,7 +402,6 @@ while True:
         v, t = points.get_vertices(), points.get_texture_coordinates()
         verts = np.asanyarray(v).view(np.float32).reshape(-1, 3)  # xyz
         texcoords = np.asanyarray(t).view(np.float32).reshape(-1, 2)  # uv
-
 
         if frame_count == 0:
             # the first frame
@@ -416,6 +416,8 @@ while True:
             accel_data_avg = get_matrix_median(threshold, 3, accel_data_array)
             gyro_data_avg = get_matrix_average(threshold, 3, gyro_data_array)
             rotation_matrix = create_rotation_matrix(gyro_data_avg)
+
+            # multiply rotation matrix with translation matrix in homogeneous coordinates
             transf_mat = create_transformation_matrix(rotation_matrix, accel_data_avg)
             # points.export_to_ply(f'./out{mat_count}.ply', mapped_frame)
             file_name = f'original_out{mat_count}.ply'
@@ -433,14 +435,14 @@ while True:
             mat_count = mat_count + 1
 
         if mat_count == 10:
-            updated_pointclouds = apply_transformations(vertices, transf_matrices_inverted, 10)
+            updated_pointclouds = apply_transformations(vertices, transf_matrices_inverted)
             for index in range(len(updated_pointclouds)):
-                texture = get_texture_from_pointcloud(updated_pointclouds[index], tex_coords[index],color_frames[index])
+                texture = get_texture_from_pointcloud(updated_pointclouds[index], tex_coords[index],
+                                                      color_frames[index])
                 # save the transformed pointcloud
                 file_name = f'transformed{index}.ply'
                 export_numpy_array_to_ply(updated_pointclouds[index], texture, file_name=file_name)
             exit(1)
-
 
     # Render
     now = time.time()
@@ -498,8 +500,6 @@ while True:
 
     if key == ord("e"):
         default_export_points(points)
-
-
 
     if key in (27, ord("q")) or cv2.getWindowProperty(state.WIN_NAME, cv2.WND_PROP_AUTOSIZE) < 0:
         break
