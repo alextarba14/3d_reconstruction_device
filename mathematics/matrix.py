@@ -1,27 +1,52 @@
 import numpy as np
 import math
 
-def get_matrix_median(lines, columns, matrix):
+
+def get_matrix_median(matrix):
+    lines = len(matrix)
+    columns = len(matrix[0])
     matrix_transposed = np.array(matrix).transpose()
     for j in range(columns):
         matrix_transposed[j].sort()
 
     matrix = matrix_transposed.transpose()
 
-    return matrix[(int)(lines/2)]
+    return matrix[(int)(lines / 2)]
 
 
-def get_matrix_average(lines, columns, matrix):
-    sum_vector = [0, 0, 0]
-    for i in range(lines):
-        for j in range(columns):
-            sum_vector[j] = sum_vector[j] + matrix[i][j]
-
+def get_matrix_average(matrix):
+    lines = len(matrix)
+    columns = len(matrix[0])
+    sum_vector = get_matrix_sum_by_columns(matrix)
     for i in range(columns):
         sum_vector[i] = sum_vector[i] / lines
 
     return sum_vector
 
+
+def get_matrix_sum_by_columns(matrix):
+    lines = len(matrix)
+    columns = len(matrix[0])
+    sum_vector = [0, 0, 0]
+    for i in range(lines):
+        for j in range(columns):
+            sum_vector[j] = sum_vector[j] + matrix[i][j]
+
+    return sum_vector
+
+
+def get_trapz_integral_by_time(matrix):
+    """ Matrix has a number of 4 columns [x,y,z,timestamp]
+        Timestamp is given in miliseconds, but the angular velocity is in Rad/seconds.
+        So a division by 1000 is applied in order to convert miliseconds to seconds.
+
+        Returns:
+            A list containing the trapezoidal sum of the matrix by columns.
+    """
+    array = np.array(matrix)
+    dx = array[:,3] /1000
+    trapz_sum_vector_seconds = [np.trapz(array[:, 0], x=dx), np.trapz(array[:, 1], x=dx), np.trapz(array[:, 2], x=dx)]
+    return trapz_sum_vector_seconds
 
 def create_rotation_matrix(gyro_data):
     mat = np.empty((3, 3), dtype=np.float32)
