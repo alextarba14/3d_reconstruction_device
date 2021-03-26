@@ -21,8 +21,9 @@ import cv2
 import numpy as np
 import pyrealsense2 as rs
 from motion import process_gyro, process_accel
-from mathematics.matrix import get_matrix_average, create_rotation_matrix, create_transformation_matrix,\
-    get_matrix_median
+from mathematics.matrix import get_matrix_average, get_matrix_sum_by_columns, create_rotation_matrix, \
+    create_transformation_matrix, \
+    get_matrix_median, get_trapz_integral_by_time
 from mathematics.vector import get_difference_item, get_texture_from_pointcloud
 from mathematics.transformations import apply_transformations
 from export.ply import export_numpy_array_to_ply, default_export_points
@@ -88,7 +89,7 @@ imu_pipeline = rs.pipeline()
 imu_config = rs.config()
 # Configuring streams at different rates
 # Accelerometer available FPS: {63, 250}Hz
-imu_config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 63)  # acceleration
+imu_config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 250)  # acceleration
 # Gyroscope available FPS: {200,400}Hz
 imu_config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 200)  # gyroscope
 imu_profile = imu_pipeline.start(imu_config)
@@ -323,7 +324,7 @@ threshold = 10
 frame_count = -1
 accel_data_array = [[0 for x in range(3)] for y in range(threshold)]
 gyro_data_array = [[0 for x in range(3)] for y in range(threshold)]
-
+index = 0
 mat_count = 0
 while True:
     # Grab camera data
@@ -333,19 +334,18 @@ while True:
 
         depth_frame = frames.get_depth_frame()
         color_frame = frames.get_color_frame()
-
         # incrementing frame count
         frame_count = frame_count + 1
         theta = Angle(0, 0, 0)
 
         imu_frames = imu_pipeline.wait_for_frames()
-        index = frame_count % threshold
 
         for frame in imu_frames:
             motion_frame = frame.as_motion_frame()
             if motion_frame and motion_frame.get_profile().stream_type() == rs.stream.accel:
                 # Accelerometer frame
                 # Get accelerometer measurements
+                timestamp = motion_frame.get_timestamp()
                 accel_data = motion_frame.get_motion_data()
                 accel_data_array[index] = get_difference_item(accel_data_array, accel_data, index)
                 # print(accel_data)
@@ -355,7 +355,7 @@ while True:
                 timestamp = motion_frame.get_timestamp()
                 # Get gyro measurements
                 gyro_data = motion_frame.get_motion_data()
-                gyro_data_array[index] = [gyro_data.x, gyro_data.y, gyro_data.z]
+                gyro_data_array[index] = [gyro_data.x, gyro_data.y, gyro_data.z, timestamp]
                 # print(gyro_data)
 
             h, w = out.shape[:2]
@@ -411,14 +411,16 @@ while True:
             tex_coords.append(texcoords)
             continue
 
+        index = frame_count % threshold
         if index == 0:
             print("Frame count:", frame_count)
-            accel_data_avg = get_matrix_median(threshold, 3, accel_data_array)
-            gyro_data_avg = get_matrix_average(threshold, 3, gyro_data_array)
+            accel_data_avg = get_matrix_median(accel_data_array)
+            gyro_data_avg = get_trapz_integral_by_time(gyro_data_array)
+
             rotation_matrix = create_rotation_matrix(gyro_data_avg)
 
             # multiply rotation matrix with translation matrix in homogeneous coordinates
-            transf_mat = create_transformation_matrix(rotation_matrix, accel_data_avg)
+            transf_mat = create_transformation_matrix(rotation_matrix, [0,0,0])
             # points.export_to_ply(f'./out{mat_count}.ply', mapped_frame)
             file_name = f'original_out{mat_count}.ply'
             # default_export_points(points, file_name)
@@ -440,9 +442,10 @@ while True:
                 texture = get_texture_from_pointcloud(updated_pointclouds[index], tex_coords[index],
                                                       color_frames[index])
                 # save the transformed pointcloud
-                file_name = f'transformed{index}.ply'
+                file_name = f'transformed_using_sum{index}.ply'
                 export_numpy_array_to_ply(updated_pointclouds[index], texture, file_name=file_name)
             exit(1)
+
 
     # Render
     now = time.time()
