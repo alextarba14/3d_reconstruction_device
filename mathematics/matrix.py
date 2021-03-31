@@ -56,17 +56,17 @@ def create_rotation_matrix(gyro_data):
     # z axis is used for roll
 
     # in rotation matrix
-    # alpha is for yaw
-    # beta is for pitch
-    # gamma is for roll
+    # alpha is for roll
+    # beta is for yaw
+    # gamma is for pitch
 
     # Matrix computed based on: https://en.wikipedia.org/wiki/Rotation_matrix
-    cos_alpha = math.cos(gyro_data[1])
-    sin_alpha = math.sin(gyro_data[1])
-    cos_beta = math.cos(gyro_data[0])
-    sin_beta = math.sin(gyro_data[0])
-    cos_gamma = math.cos(gyro_data[2])
-    sin_gamma = math.sin(gyro_data[2])
+    cos_alpha = math.cos(gyro_data[2])
+    sin_alpha = math.sin(gyro_data[2])
+    cos_beta = math.cos(gyro_data[1])
+    sin_beta = math.sin(gyro_data[1])
+    cos_gamma = math.cos(gyro_data[0])
+    sin_gamma = math.sin(gyro_data[0])
 
     mat[0][0] = cos_alpha * cos_beta
     mat[0][1] = cos_alpha * sin_beta * sin_gamma - sin_alpha * cos_gamma
