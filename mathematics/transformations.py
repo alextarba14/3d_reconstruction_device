@@ -37,10 +37,9 @@ def apply_transformations(pointclouds, transf_matrices):
             current_transf_matrix = transf_matrices[j]
 
             for i in range(pc_length):
-                # avoid multiplication by zero
-                if current_pointcloud[i][2] != 0:
-                    # multiply Tr^(-1)*p' = p (obtaining points based referenced at previous system information)
-                    current_pointcloud[i] = current_transf_matrix.dot(current_pointcloud[i])
+                # multiply Tr*p = p' (obtaining points based referenced at previous system information)
+                current_pointcloud[i] = current_transf_matrix.dot(current_pointcloud[i])
+            # np.matmul(current_pointcloud, current_transf_matrix, current_pointcloud)
 
             j = j - 1
             print(f'Stopped j: {j} after: ', time.time() - start_time)

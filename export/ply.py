@@ -2,21 +2,9 @@ import numpy as np
 import pyrealsense2 as rs
 
 def export_numpy_array_to_ply(array, texture, file_name="test.ply"):
-    # transpose numpy array in order to put columns as lines
-    transposed_array = array.transpose()
-    # get the z column - depth
-    transposed_depth = transposed_array[2]
-    # keep only elements that have depth greater than 0
-    indexes = np.where(transposed_depth>0)
-
-    # update both arrays to keep only valid point information
-    array = array[indexes]
-    texture =  texture[indexes]
-
     # multiply y and z columns in order to rotate them to be displayed properly
-    array[:,1] *= -1
-    array[:,2] *= -1
-
+    array[:, 1] *= -1
+    array[:, 2] *= -1
 
     # concatenate both vertices and texture in one array with (length, 5) shape
     array = np.concatenate((array, texture), axis=1)

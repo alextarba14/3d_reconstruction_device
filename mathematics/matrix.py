@@ -131,5 +131,9 @@ def get_indexes_of_valid_points(array):
     Returns:
         A tuple containing valid point indexes.
     """
+    # transpose numpy array in order to put columns as lines
+    # get the z column - depth
     depth = array.transpose()[2]
+
+    # keep only elements that have depth greater than 0
     return np.where(depth > 0)

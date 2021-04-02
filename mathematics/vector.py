@@ -26,15 +26,10 @@ def get_texture_from_pointcloud(vertices, tex_coords, color_frame: rs.frame):
     texture = []
     length = len(vertices)
     for i in range(length):
-        # check if depth is greater than zero to exclude invalid points
-        if vertices[i][2] > 0:
-            texture.append(get_texture_color(tex_coords[i], texture_data, w, h, bytes_per_pixel, stride_in_bytes))
-        else:
-            texture.append([-1,-1,-1])
+        texture.append(get_texture_color(tex_coords[i], texture_data, w, h, bytes_per_pixel, stride_in_bytes))
 
-    print("It took: ", time.time()-start_time)
+    print("It took: ", time.time() - start_time)
     return np.asanyarray(texture).reshape(-1,3)
-
 
 
 def get_texture_color(tex_coords: rs.texture_coordinate, texture_data, w, h, bytes_per_pixel, stride_in_bytes):
@@ -43,5 +38,5 @@ def get_texture_color(tex_coords: rs.texture_coordinate, texture_data, w, h, byt
     """
     x = min(max(int(tex_coords[0] * w + 0.5), 0), w - 1)
     y = min(max(int(tex_coords[1] * h + 0.5), 0), h - 1)
-    idx = x * bytes_per_pixel  + y * stride_in_bytes
+    idx = x * bytes_per_pixel + y * stride_in_bytes
     return [texture_data[idx][0], texture_data[idx + 1][0], texture_data[idx + 2][0]]
