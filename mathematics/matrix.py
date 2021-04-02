@@ -44,9 +44,10 @@ def get_trapz_integral_by_time(matrix):
             A list containing the trapezoidal sum of the matrix by columns.
     """
     array = np.array(matrix)
-    dx = array[:,3] /1000
+    dx = array[:, 3] / 1000
     trapz_sum_vector_seconds = [np.trapz(array[:, 0], x=dx), np.trapz(array[:, 1], x=dx), np.trapz(array[:, 2], x=dx)]
     return trapz_sum_vector_seconds
+
 
 def create_rotation_matrix(gyro_data):
     mat = np.empty((3, 3), dtype=np.float32)
@@ -118,3 +119,17 @@ def create_transformation_matrix(rotation_matrix, accel_data):
     transf_mat[3][3] = 1
 
     return transf_mat
+
+
+def get_indexes_of_valid_points(array):
+    """
+    Returns a tuple with indexes only for points that have valid depth (depth>0).
+    First it transpose the nx3 array to get only the depth array.
+    After that it will return the indexes based on the condition (depth>0).
+    Args:
+        array: (n,3) array containing coordinates of point in xyz.
+    Returns:
+        A tuple containing valid point indexes.
+    """
+    depth = array.transpose()[2]
+    return np.where(depth > 0)
