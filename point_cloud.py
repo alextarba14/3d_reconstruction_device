@@ -28,11 +28,7 @@ from mathematics.vector import get_difference_item, get_texture_from_pointcloud
 from mathematics.transformations import apply_transformations
 from export.ply import export_numpy_array_to_ply, default_export_points
 from angle import Angle
-import cProfile
-
-import pandas as pd
-
-from pyntcloud import PyntCloud
+from plot.plot import save_data_as_plot_image
 
 
 class AppState:
@@ -324,6 +320,8 @@ threshold = 10
 frame_count = -1
 accel_data_array = [[0 for x in range(3)] for y in range(threshold)]
 gyro_data_array = [[0 for x in range(3)] for y in range(threshold)]
+accel_data_to_be_plotted = []
+gyro_data_to_be_plotted = []
 index = 0
 mat_count = 0
 while True:
@@ -348,6 +346,7 @@ while True:
                 timestamp = motion_frame.get_timestamp()
                 accel_data = motion_frame.get_motion_data()
                 accel_data_array[index] = get_difference_item(accel_data_array, accel_data, index)
+                accel_data_to_be_plotted.append([accel_data.x, accel_data.y, accel_data.z, timestamp])
                 # print(accel_data)
             elif motion_frame and motion_frame.get_profile().stream_type() == rs.stream.gyro:
                 # Gyro frame
@@ -356,6 +355,7 @@ while True:
                 # Get gyro measurements
                 gyro_data = motion_frame.get_motion_data()
                 gyro_data_array[index] = [gyro_data.x, gyro_data.y, gyro_data.z, timestamp]
+                gyro_data_to_be_plotted.append([gyro_data.x, gyro_data.y, gyro_data.z, timestamp])
                 # print(gyro_data)
 
             h, w = out.shape[:2]
@@ -437,6 +437,9 @@ while True:
             mat_count = mat_count + 1
 
         if mat_count == 10:
+            save_data_as_plot_image(gyro_data_to_be_plotted, title="Raw data gyroscope")
+            save_data_as_plot_image(accel_data_to_be_plotted, title="Raw data accelerometer")
+            break
             updated_pointclouds = apply_transformations(vertices, transf_matrices)
             for index in range(len(updated_pointclouds)):
                 texture = get_texture_from_pointcloud(updated_pointclouds[index], tex_coords[index],
