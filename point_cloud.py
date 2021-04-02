@@ -416,7 +416,6 @@ while True:
             print("Frame count:", frame_count)
             accel_data_avg = get_matrix_median(accel_data_array)
             gyro_data_avg = get_trapz_integral_by_time(gyro_data_array)
-
             rotation_matrix = create_rotation_matrix(gyro_data_avg)
 
             # multiply rotation matrix with translation matrix in homogeneous coordinates
@@ -425,12 +424,9 @@ while True:
             file_name = f'original_out{mat_count}.ply'
             # default_export_points(points, file_name)
 
-            # invert transformation matrix in order to multiply points with the correct matrix
-            inverse_transf_matrix = np.linalg.inv(transf_mat)
-
             # append to bigger lists
             vertices.append(verts)
-            transf_matrices_inverted.append(inverse_transf_matrix)
+            transf_matrices_inverted.append(transf_mat)
             color_frames.append(color_frame)
             tex_coords.append(texcoords)
 
@@ -442,7 +438,7 @@ while True:
                 texture = get_texture_from_pointcloud(updated_pointclouds[index], tex_coords[index],
                                                       color_frames[index])
                 # save the transformed pointcloud
-                file_name = f'transformed_using_sum{index}.ply'
+                file_name = f'transformed_using_trapz{index}.ply'
                 export_numpy_array_to_ply(updated_pointclouds[index], texture, file_name=file_name)
             exit(1)
 
