@@ -23,7 +23,7 @@ import pyrealsense2 as rs
 from motion import process_gyro, process_accel
 from mathematics.matrix import get_matrix_average, get_matrix_sum_by_columns, create_rotation_matrix, \
     create_transformation_matrix, \
-    get_matrix_median, get_trapz_integral_by_time
+    get_matrix_median, get_trapz_integral_by_time, get_indexes_of_valid_points
 from mathematics.vector import get_difference_item, get_texture_from_pointcloud
 from mathematics.transformations import apply_transformations
 from export.ply import export_numpy_array_to_ply, default_export_points
@@ -318,7 +318,7 @@ grid(out, (0.2, 0, 0.2), size=1, n=30)
 vertices = []
 tex_coords = []
 color_frames = []
-transf_matrices_inverted = []
+transf_matrices = []
 
 threshold = 10
 frame_count = -1
@@ -405,10 +405,11 @@ while True:
 
         if frame_count == 0:
             # the first frame
-            vertices.append(verts)
-            transf_matrices_inverted.append(np.zeros((4, 4), dtype=np.float32))
+            valid_points_indexes = get_indexes_of_valid_points(verts)
+            vertices.append(verts[valid_points_indexes])
+            transf_matrices.append(np.zeros((4, 4), dtype=np.float32))
             color_frames.append(color_frame)
-            tex_coords.append(texcoords)
+            tex_coords.append(texcoords[valid_points_indexes])
             continue
 
         index = frame_count % threshold
@@ -419,21 +420,24 @@ while True:
             rotation_matrix = create_rotation_matrix(gyro_data_avg)
 
             # multiply rotation matrix with translation matrix in homogeneous coordinates
-            transf_mat = create_transformation_matrix(rotation_matrix, [0,0,0])
+            transf_mat = create_transformation_matrix(rotation_matrix, [0, 0, 0])
             # points.export_to_ply(f'./out{mat_count}.ply', mapped_frame)
             file_name = f'original_out{mat_count}.ply'
             # default_export_points(points, file_name)
 
             # append to bigger lists
-            vertices.append(verts)
-            transf_matrices_inverted.append(transf_mat)
+            # get the valid point indexes from the vertexes array
+            valid_points_indexes = get_indexes_of_valid_points(verts)
+            vertices.append(verts[valid_points_indexes])
+            transf_matrices.append(transf_mat)
             color_frames.append(color_frame)
-            tex_coords.append(texcoords)
+            # use the same indexes as the vertices
+            tex_coords.append(texcoords[valid_points_indexes])
 
             mat_count = mat_count + 1
 
-        if mat_count == 10:
-            updated_pointclouds = apply_transformations(vertices, transf_matrices_inverted)
+        if mat_count == 1:
+            updated_pointclouds = apply_transformations(vertices, transf_matrices)
             for index in range(len(updated_pointclouds)):
                 texture = get_texture_from_pointcloud(updated_pointclouds[index], tex_coords[index],
                                                       color_frames[index])
@@ -441,7 +445,6 @@ while True:
                 file_name = f'transformed_using_trapz{index}.ply'
                 export_numpy_array_to_ply(updated_pointclouds[index], texture, file_name=file_name)
             exit(1)
-
 
     # Render
     now = time.time()
