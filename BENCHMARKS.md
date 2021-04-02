@@ -47,3 +47,31 @@
 |**Total time spent**| **40.00211000442505**|
 | | | 
 |get_texture_from_pointcloud| 2.068113327026367|
+
+
+## 02-04-2021 16:00
+### Applying n-1 transformations for each pointcloud
+- Using the direct transformation matrix.
+- Storing only valid points from each pointcloud from the beginning.
+- Indexing lists to get pointclouds.
+- Keeping color frames and texture coordinates in memory in order to get RGB information for each point.
+- Saving pointclouds to file after updates.
+- **Using for iteration to multiply each point with the transformation matrix.**
+
+|task|time_spent[s]|
+|----|-------------|
+|apply_transformations 1 pointcloud | 0.24056720733642578|
+|||
+|**Total time spent for 10 pointclouds**| **12.109205722808838**|
+| | | 
+|get_texture_from_pointcloud| 1.696603775024414|
+
+
+## Comparison between methods used to multiply a pointcloud with the transformation matrix
+
+|task|method|time_spent[s]|**Total time spent for 10 pointclouds**|
+|----|-------------|-------|--------------|
+|apply_transformations 1 pointcloud | Multiply using **for** | 0.24056720733642578 | 12.109205722808838|
+|apply_transformations 1 pointcloud | using **np.einsum**| 0.006560802459716797 | 0.32988429069519043 |
+|apply_transformations 1 pointcloud | using **.dot**| 0.003931999206542969 | 0.20569825172424316 |
+

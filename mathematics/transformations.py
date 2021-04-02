@@ -36,10 +36,12 @@ def apply_transformations(pointclouds, transf_matrices):
             print(f'Started j: {j} at: ', start_time)
             current_transf_matrix = transf_matrices[j]
 
-            for i in range(pc_length):
-                # multiply Tr*p = p' (obtaining points based referenced at previous system information)
-                current_pointcloud[i] = current_transf_matrix.dot(current_pointcloud[i])
-            # np.matmul(current_pointcloud, current_transf_matrix, current_pointcloud)
+            # for i in range(pc_length):
+            #     # multiply Tr*p = p' (obtaining points based referenced at previous system information)
+            #     current_pointcloud[i] = current_transf_matrix.dot(current_pointcloud[i])
+            # or
+            # current_pointcloud = np.einsum("ij,kj->ik", current_pointcloud, current_transf_matrix)
+            current_pointcloud = current_pointcloud.dot(current_transf_matrix.T)
 
             j = j - 1
             print(f'Stopped j: {j} after: ', time.time() - start_time)

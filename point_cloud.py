@@ -436,7 +436,7 @@ while True:
 
             mat_count = mat_count + 1
 
-        if mat_count == 1:
+        if mat_count == 10:
             updated_pointclouds = apply_transformations(vertices, transf_matrices)
             for index in range(len(updated_pointclouds)):
                 texture = get_texture_from_pointcloud(updated_pointclouds[index], tex_coords[index],
