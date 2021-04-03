@@ -46,8 +46,8 @@ def get_trapz_integral_by_time(matrix):
     array = np.array(matrix)
     dx = array[:, 3] / 1000
     first_integral_vector = [np.trapz(array[:, 0], x=dx),
-                                np.trapz(array[:, 1], x=dx),
-                                np.trapz(array[:, 2], x=dx)]
+                             np.trapz(array[:, 1], x=dx),
+                             np.trapz(array[:, 2], x=dx)]
     return first_integral_vector
 
 
@@ -168,3 +168,25 @@ def get_indexes_of_valid_points(array):
 
     # keep only elements that have depth greater than 0
     return np.where(depth > 0)
+
+
+def remove_gravity_from_accel_data(accel_data_array, gyro_data_array, accel_state):
+    adjusted_accel_data = []
+    # replace timestamp with 1 to be in homogeneous coordinates then convert to numpy array
+    accel_state[3] = 1
+    initial_accel_array = np.array(accel_state)
+
+    for i in range(len(accel_data_array)):
+        # rotate initial accel with corresponding rotation
+        rotation_matrix = create_rotation_matrix(gyro_data_array[i])
+        # no translation
+        transf_matrix = create_transformation_matrix(rotation_matrix, [0, 0, 0])
+        # rotate the initial accel data
+        current_rotated = initial_accel_array @ transf_matrix
+
+        current_accel_data = np.array(accel_data_array[i])
+        # remove the gravity from x,y,z axes but keep the timestamp
+        current_accel_data[:3] -= current_rotated[:3]
+        adjusted_accel_data.append(current_accel_data)
+
+    return adjusted_accel_data
