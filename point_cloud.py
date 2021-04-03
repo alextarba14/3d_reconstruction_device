@@ -23,7 +23,8 @@ import pyrealsense2 as rs
 from motion import process_gyro, process_accel
 from mathematics.matrix import get_matrix_average, get_matrix_sum_by_columns, create_rotation_matrix, \
     create_transformation_matrix, \
-    get_matrix_median, get_trapz_integral_by_time, get_indexes_of_valid_points, get_double_trapz_integral_by_time
+    get_matrix_median, get_trapz_integral_by_time, get_indexes_of_valid_points, get_double_trapz_integral_by_time, \
+    remove_gravity_from_accel_data
 from mathematics.vector import get_difference_item, get_texture_from_pointcloud
 from mathematics.transformations import apply_transformations
 from export.ply import export_numpy_array_to_ply, default_export_points
@@ -322,6 +323,7 @@ transf_matrices = []
 
 threshold = 10
 frame_count = -1
+accel_state = [0, -9.81, 0, 1]
 accel_data_array = [[0 for x in range(3)] for y in range(threshold)]
 gyro_data_array = [[0 for x in range(3)] for y in range(threshold)]
 index = 0
@@ -348,7 +350,7 @@ while True:
                 # Accelerometer frame
                 # Get accelerometer measurements
                 accel_data = motion_frame.get_motion_data()
-                accel_data_array[index] = [accel_data.x, 0, accel_data.z, timestamp]
+                accel_data_array[index] = [accel_data.x, accel_data.y, accel_data.z, timestamp]
                 # print(accel_data)
             elif motion_frame and motion_frame.get_profile().stream_type() == rs.stream.gyro:
                 # Gyro frame
@@ -409,13 +411,19 @@ while True:
             transf_matrices.append(np.zeros((4, 4), dtype=np.float32))
             color_frames.append(color_frame)
             tex_coords.append(texcoords[valid_points_indexes])
+
+            accel_state = accel_data_array[0]
             continue
 
         index = frame_count % threshold
         if index == 0:
             print("Frame count:", frame_count)
             # get the position by double integrating the acceleration
-            translation = get_double_trapz_integral_by_time(accel_data_array)
+            acceleration = remove_gravity_from_accel_data(accel_data_array, gyro_data_array, accel_state)
+            translation = get_double_trapz_integral_by_time(acceleration)
+
+            # update the accelerometer state with the last data
+            accel_state = accel_data_array[9]
 
             # get the rotation angle by integrating the rotation velocity
             rotation = get_trapz_integral_by_time(gyro_data_array)
