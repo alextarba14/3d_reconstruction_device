@@ -171,18 +171,28 @@ def get_indexes_of_valid_points(array):
 
 
 def remove_gravity_from_accel_data(accel_data_array, gyro_data_array, accel_state):
+    """
+    It rotates the accelerometer state array with each gyro data to get the orientation.
+    Then it subtracts the result from each accelerometer data.
+    Args:
+        accel_data_array: multiple accelerometer data from different frames.
+        gyro_data_array: corresponding gyro data to the same accelerometer data array.
+        accel_state: the previous state of the accelerometer.
+    Returns:
+        adjusted_accel_data: an array with the xyz values of accelerometer data and timestamp associated.
+    """
     adjusted_accel_data = []
     # replace timestamp with 1 to be in homogeneous coordinates then convert to numpy array
     accel_state[3] = 1
-    initial_accel_array = np.array(accel_state)
+    accel_state_array = np.array(accel_state)
 
     for i in range(len(accel_data_array)):
-        # rotate initial accel with corresponding rotation
+        # create the rotation matrix from a gyro data sample
         rotation_matrix = create_rotation_matrix(gyro_data_array[i])
-        # no translation
+        # no translation needed to compute the transformation matrix
         transf_matrix = create_transformation_matrix(rotation_matrix, [0, 0, 0])
-        # rotate the initial accel data
-        current_rotated = initial_accel_array @ transf_matrix
+        # rotate the accelerometer state by data provided from the gyroscope
+        current_rotated = accel_state_array @ transf_matrix
 
         current_accel_data = np.array(accel_data_array[i])
         # remove the gravity from x,y,z axes but keep the timestamp
