@@ -23,7 +23,7 @@ import pyrealsense2 as rs
 from motion import process_gyro, process_accel
 from mathematics.matrix import get_matrix_average, get_matrix_sum_by_columns, create_rotation_matrix, \
     create_transformation_matrix, \
-    get_matrix_median, get_trapz_integral_by_time, get_indexes_of_valid_points
+    get_matrix_median, get_trapz_integral_by_time, get_indexes_of_valid_points, get_double_trapz_integral_by_time
 from mathematics.vector import get_difference_item, get_texture_from_pointcloud
 from mathematics.transformations import apply_transformations
 from export.ply import export_numpy_array_to_ply, default_export_points
@@ -342,17 +342,16 @@ while True:
 
         for frame in imu_frames:
             motion_frame = frame.as_motion_frame()
+            # Get the timestamp of the current frame to integrate by time
+            timestamp = motion_frame.get_timestamp()
             if motion_frame and motion_frame.get_profile().stream_type() == rs.stream.accel:
                 # Accelerometer frame
                 # Get accelerometer measurements
-                timestamp = motion_frame.get_timestamp()
                 accel_data = motion_frame.get_motion_data()
-                accel_data_array[index] = get_difference_item(accel_data_array, accel_data, index)
+                accel_data_array[index] = [accel_data.x, 0, accel_data.z, timestamp]
                 # print(accel_data)
             elif motion_frame and motion_frame.get_profile().stream_type() == rs.stream.gyro:
                 # Gyro frame
-                # Get the timestamp of current frame
-                timestamp = motion_frame.get_timestamp()
                 # Get gyro measurements
                 gyro_data = motion_frame.get_motion_data()
                 gyro_data_array[index] = [gyro_data.x, gyro_data.y, gyro_data.z, timestamp]
@@ -415,12 +414,15 @@ while True:
         index = frame_count % threshold
         if index == 0:
             print("Frame count:", frame_count)
-            accel_data_avg = get_matrix_median(accel_data_array)
-            gyro_data_avg = get_trapz_integral_by_time(gyro_data_array)
-            rotation_matrix = create_rotation_matrix(gyro_data_avg)
+            # get the position by double integrating the acceleration
+            translation = get_double_trapz_integral_by_time(accel_data_array)
+
+            # get the rotation angle by integrating the rotation velocity
+            rotation = get_trapz_integral_by_time(gyro_data_array)
+            rotation_matrix = create_rotation_matrix(rotation)
 
             # multiply rotation matrix with translation matrix in homogeneous coordinates
-            transf_mat = create_transformation_matrix(rotation_matrix, [0, 0, 0])
+            transf_mat = create_transformation_matrix(rotation_matrix, translation)
             # points.export_to_ply(f'./out{mat_count}.ply', mapped_frame)
             file_name = f'original_out{mat_count}.ply'
             # default_export_points(points, file_name)
