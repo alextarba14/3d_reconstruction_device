@@ -1,5 +1,6 @@
 import numpy as np
 import math
+from scipy.integrate import cumtrapz
 
 
 def get_matrix_median(matrix):
@@ -37,16 +38,47 @@ def get_matrix_sum_by_columns(matrix):
 
 def get_trapz_integral_by_time(matrix):
     """ Matrix has a number of 4 columns [x,y,z,timestamp]
-        Timestamp is given in miliseconds, but the angular velocity is in Rad/seconds.
-        So a division by 1000 is applied in order to convert miliseconds to seconds.
+        Timestamp is given in milliseconds, but the angular velocity is in Rad/seconds.
+        So a division by 1000 is applied in order to convert milliseconds to seconds.
 
         Returns:
             A list containing the trapezoidal sum of the matrix by columns.
     """
     array = np.array(matrix)
     dx = array[:, 3] / 1000
-    trapz_sum_vector_seconds = [np.trapz(array[:, 0], x=dx), np.trapz(array[:, 1], x=dx), np.trapz(array[:, 2], x=dx)]
-    return trapz_sum_vector_seconds
+    first_integral_vector = [np.trapz(array[:, 0], x=dx),
+                                np.trapz(array[:, 1], x=dx),
+                                np.trapz(array[:, 2], x=dx)]
+    return first_integral_vector
+
+
+def get_double_trapz_integral_by_time(matrix):
+    """ Matrix has a number of 4 columns [x,y,z,timestamp]
+        Timestamp is given in milliseconds, but the angular velocity is in Rad/seconds.
+        So a division by 1000 is applied in order to convert miliseconds to seconds.
+        It computes the double integral of acceleration to return position.
+        Returns:
+            A list containing the trapezoidal sum of the matrix by columns.
+    """
+    array = np.array(matrix)
+    dx = array[:, 3] / 1000
+
+    # compute the first integral array
+    first_integral_x = cumtrapz(array[:, 0], dx)
+    first_integral_y = cumtrapz(array[:, 1], dx)
+    first_integral_z = cumtrapz(array[:, 2], dx)
+
+    # remove last element from array
+    dx = dx[:-1]
+
+    # compute the double integral result
+    double_integral_x = np.trapz(first_integral_x, x=dx)
+    double_integral_y = np.trapz(first_integral_y, x=dx)
+    double_integral_z = np.trapz(first_integral_z, x=dx)
+
+    return [double_integral_x,
+            double_integral_y,
+            double_integral_z]
 
 
 def create_rotation_matrix(gyro_data):
