@@ -23,7 +23,8 @@ import pyrealsense2 as rs
 from motion import process_gyro, process_accel
 from mathematics.matrix import get_matrix_average, get_matrix_sum_by_columns, create_rotation_matrix, \
     create_transformation_matrix, \
-    get_matrix_median, get_trapz_integral_by_time, get_indexes_of_valid_points, get_double_trapz_integral_by_time
+    get_matrix_median, get_trapz_integral_by_time, get_indexes_of_valid_points, get_double_trapz_integral_by_time, \
+    remove_gravity_from_accel_data
 from mathematics.vector import get_difference_item, get_texture_from_pointcloud
 from mathematics.transformations import apply_transformations
 from export.ply import export_numpy_array_to_ply, default_export_points
@@ -325,6 +326,8 @@ gyro_data_to_be_plotted = []
 integral_gyro_data = []
 integral_accel_data = []
 double_integrated_accel = []
+position_without_gravity = []
+accel_state = [0, -9.81, 0, 1]
 index = 0
 mat_count = 0
 while True:
@@ -413,18 +416,27 @@ while True:
             transf_matrices.append(np.zeros((4, 4), dtype=np.float32))
             color_frames.append(color_frame)
             tex_coords.append(texcoords[valid_points_indexes])
+
+            accel_state = accel_data_array[0]
             continue
 
         index = frame_count % threshold
         if index == 0:
             print("Frame count:", frame_count)
-            accel_data_avg = get_double_trapz_integral_by_time(accel_data_array)
-            gyro_data_avg = get_trapz_integral_by_time(gyro_data_array)
+            # Removing gravity from accelerometer data
+            acceleration = remove_gravity_from_accel_data(accel_data_array, gyro_data_array, accel_state)
+            integrated = get_double_trapz_integral_by_time(acceleration)
+            # add the timestamp
+            integrated.append(accel_data_array[9][3])
+            position_without_gravity.append(integrated)
 
-            rotation_matrix = create_rotation_matrix(gyro_data_avg)
+            accel_data_double_integrated = get_double_trapz_integral_by_time(accel_data_array)
+            gyro_data_integrated = get_trapz_integral_by_time(gyro_data_array)
+
+            rotation_matrix = create_rotation_matrix(gyro_data_integrated)
             # append the timestamp
-            gyro_data_avg.append(gyro_data_array[9][3])
-            integral_gyro_data.append(gyro_data_avg)
+            gyro_data_integrated.append(gyro_data_array[9][3])
+            integral_gyro_data.append(gyro_data_integrated)
 
             # append the timestamp
             accel_data_first_integral = get_trapz_integral_by_time(accel_data_array)
@@ -432,8 +444,8 @@ while True:
             integral_accel_data.append(accel_data_first_integral)
 
             # the double integral
-            accel_data_avg.append(accel_data_array[9][3])
-            double_integrated_accel.append(accel_data_avg)
+            accel_data_double_integrated.append(accel_data_array[9][3])
+            double_integrated_accel.append(accel_data_double_integrated)
             # multiply rotation matrix with translation matrix in homogeneous coordinates
             transf_mat = create_transformation_matrix(rotation_matrix, [0, 0, 0])
             # points.export_to_ply(f'./out{mat_count}.ply', mapped_frame)
@@ -457,6 +469,7 @@ while True:
             save_data_as_plot_image(accel_data_to_be_plotted, title="Raw data accelerometer")
             save_data_as_plot_image(integral_accel_data, title="Integrated data accelerometer")
             save_data_as_plot_image(double_integrated_accel, title="Double integrated data accelerometer")
+            save_data_as_plot_image(position_without_gravity, title="Position without gravity")
             break
             updated_pointclouds = apply_transformations(vertices, transf_matrices)
             for index in range(len(updated_pointclouds)):
