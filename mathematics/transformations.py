@@ -41,7 +41,8 @@ def apply_transformations(pointclouds, transf_matrices):
             #     current_pointcloud[i] = current_transf_matrix.dot(current_pointcloud[i])
             # or
             # current_pointcloud = np.einsum("ij,kj->ik", current_pointcloud, current_transf_matrix)
-            current_pointcloud = current_pointcloud.dot(current_transf_matrix.T)
+            # current_pointcloud = current_pointcloud.dot(current_transf_matrix.T)
+            current_pointcloud = current_pointcloud @ current_transf_matrix.T
 
             j = j - 1
             print(f'Stopped j: {j} after: ', time.time() - start_time)

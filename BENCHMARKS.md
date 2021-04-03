@@ -74,4 +74,4 @@
 |apply_transformations 1 pointcloud | Multiply using **for** | 0.24056720733642578 | 12.109205722808838|
 |apply_transformations 1 pointcloud | using **np.einsum**| 0.006560802459716797 | 0.32988429069519043 |
 |apply_transformations 1 pointcloud | using **.dot**| 0.003931999206542969 | 0.20569825172424316 |
-
+|apply_transformations 1 pointcloud | using **@**| 0.0018579959869384766 | 0.16050934791564941 |
