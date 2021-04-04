@@ -1,9 +1,6 @@
 import numpy as np
 import time
 
-from plot.plot import plot_time_and_frequency
-
-
 def apply_transform(pointcloud, matrix):
     i = 0
     length = len(pointcloud)
@@ -77,20 +74,16 @@ def remove_noise_from_data(array, sampling_rate):
     # The Power Spectral Density.
     PSD = fft * np.conj(fft) / n
     # Discrete Fourier Transform sample frequencies
-    freq = np.fft.rfftfreq(n, d=(1. / sampling_rate))
-
-     # plot_time_and_frequency(array, PSD, freq)
+    # freq = np.fft.rfftfreq(n, d=(1. / sampling_rate))
 
     # removes all frequencies above the median value
     median_value = np.median(PSD)
     indices = PSD < median_value
-    PSD_attenuated = PSD * indices
+    # PSD_attenuated = PSD * indices
     attenuated_fft = fft * indices
 
     # Compute the inverse of the n-point DFT for real input.
     attenuated_array = np.fft.irfft(attenuated_fft, n=n)
-
-    # plot_time_and_frequency(attenuated_array, PSD_attenuated, freq)
 
     return attenuated_array
 
