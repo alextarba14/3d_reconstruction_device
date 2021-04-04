@@ -72,6 +72,8 @@ state = AppState()
 WIDTH = 1280
 HEIGHT = 720
 REFRESH_RATE = 15
+ACCEL_RATE = 250
+GYRO_RATE = 200
 
 # Configure gyro, accel, depth and color streams
 pipeline = rs.pipeline()
@@ -90,9 +92,9 @@ imu_pipeline = rs.pipeline()
 imu_config = rs.config()
 # Configuring streams at different rates
 # Accelerometer available FPS: {63, 250}Hz
-imu_config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 250)  # acceleration
+imu_config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, ACCEL_RATE)  # acceleration
 # Gyroscope available FPS: {200,400}Hz
-imu_config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 200)  # gyroscope
+imu_config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, GYRO_RATE)  # gyroscope
 imu_profile = imu_pipeline.start(imu_config)
 
 # Get stream profile and camera intrinsics
