@@ -26,7 +26,7 @@ from mathematics.matrix import get_matrix_average, get_matrix_sum_by_columns, cr
     get_matrix_median, get_trapz_integral_by_time, get_indexes_of_valid_points, get_double_trapz_integral_by_time, \
     remove_gravity_from_accel_data
 from mathematics.vector import get_difference_item, get_texture_from_pointcloud
-from mathematics.transformations import apply_transformations
+from mathematics.transformations import apply_transformations, remove_noise_from_matrix
 from export.ply import export_numpy_array_to_ply, default_export_points
 from angle import Angle
 from plot.plot import save_data_as_plot_image
@@ -427,7 +427,8 @@ while True:
             print("Frame count:", frame_count)
             # Removing gravity from accelerometer data
             acceleration = remove_gravity_from_accel_data(accel_data_array, gyro_data_array, accel_state)
-            integrated = get_double_trapz_integral_by_time(acceleration)
+            noiseless_acceleration = remove_noise_from_matrix(acceleration, ACCEL_RATE)
+            integrated = get_double_trapz_integral_by_time(noiseless_acceleration)
             # add the timestamp
             integrated.append(accel_data_array[9][3])
             position_without_gravity.append(integrated)
@@ -466,12 +467,20 @@ while True:
             mat_count = mat_count + 1
 
         if mat_count == 10:
+            # remove noise from accel data
+            noiseless_accel = remove_noise_from_matrix(accel_data_to_be_plotted, ACCEL_RATE)
+            # remove noise from gyro data
+            noiseless_gyro = remove_noise_from_matrix(gyro_data_to_be_plotted, GYRO_RATE)
+
             save_data_as_plot_image(gyro_data_to_be_plotted, title="Raw data gyroscope")
             save_data_as_plot_image(integral_gyro_data, title="Integrated data gyroscope")
             save_data_as_plot_image(accel_data_to_be_plotted, title="Raw data accelerometer")
             save_data_as_plot_image(integral_accel_data, title="Integrated data accelerometer")
             save_data_as_plot_image(double_integrated_accel, title="Double integrated data accelerometer")
             save_data_as_plot_image(position_without_gravity, title="Position without gravity")
+
+            save_data_as_plot_image(noiseless_accel, title="Noiseless accelerometer")
+            save_data_as_plot_image(noiseless_gyro, title="Noiseless gyroscope")
             break
             updated_pointclouds = apply_transformations(vertices, transf_matrices)
             for index in range(len(updated_pointclouds)):
