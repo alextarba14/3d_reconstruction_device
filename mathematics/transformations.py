@@ -1,8 +1,5 @@
 import numpy as np
 import time
-from export.ply import export_numpy_array_to_ply
-import matplotlib.pyplot as plt
-from statistics import mode
 
 from plot.plot import plot_time_and_frequency
 
@@ -82,7 +79,7 @@ def remove_noise_from_data(array, sampling_rate):
     # Discrete Fourier Transform sample frequencies
     freq = np.fft.rfftfreq(n, d=(1. / sampling_rate))
 
-    plot_time_and_frequency(array, PSD, freq)
+     # plot_time_and_frequency(array, PSD, freq)
 
     # removes all frequencies above the median value
     median_value = np.median(PSD)
@@ -93,6 +90,31 @@ def remove_noise_from_data(array, sampling_rate):
     # Compute the inverse of the n-point DFT for real input.
     attenuated_array = np.fft.irfft(attenuated_fft, n=n)
 
-    plot_time_and_frequency(attenuated_array, PSD_attenuated, freq)
+    # plot_time_and_frequency(attenuated_array, PSD_attenuated, freq)
 
     return attenuated_array
+
+
+def remove_noise_from_matrix(array, sampling_rate):
+    """
+    Removes noise from the list [x,y,z,timestamp] and returns the updated list.
+    Args:
+        array: a list with data from either gyroscope or accelerometer.
+        sampling_rate: refresh rate for data acquisition.
+    Returns:
+        The list without noise.
+    """
+    # convert the array list to numpy array  first
+    np_array = np.array(array)
+    x = np_array[:, 0]
+    y = np_array[:, 1]
+    z = np_array[:, 2]
+
+    # get updated data by median filter for each axis
+    updated_x = remove_noise_from_data(x, sampling_rate)
+    updated_y = remove_noise_from_data(y, sampling_rate)
+    updated_z = remove_noise_from_data(z, sampling_rate)
+
+    # add the timestamp to the result -> np_array[:,3]
+    result = np.array([updated_x, updated_y, updated_z, np_array[:, 3]])
+    return result.transpose().tolist()
