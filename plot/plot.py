@@ -25,11 +25,11 @@ def plot_time_and_frequency(time_array,  PSD, frequency_array):
     ax1 = fig.add_subplot(211)
     ax2 = fig.add_subplot(212)
 
-    ax1.plot(np.arange(0,len(time_array)), time_array, color='r', LineWidth=1.5, linestyle='-.')
+    ax1.plot(np.arange(0,len(time_array)), time_array, color='r', linewidth=1.5, linestyle='-.')
     ax1.set_xlabel('Index')
     ax1.set_ylabel('Value')
 
-    ax2.plot(frequency_array, PSD, color='c', LineWidth=2)
+    ax2.plot(frequency_array, PSD, color='c', linewidth=2)
     ax2.set_xlabel('Frequency[Hz]')
     ax2.set_ylabel('Amplitude')
 
