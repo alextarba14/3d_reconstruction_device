@@ -20,6 +20,8 @@ import time
 import cv2
 import numpy as np
 import pyrealsense2 as rs
+
+from export.file import export_list_to_file
 from motion import process_gyro, process_accel
 from mathematics.matrix import get_matrix_average, get_matrix_sum_by_columns, create_rotation_matrix, \
     create_transformation_matrix, \
@@ -467,6 +469,9 @@ while True:
             mat_count = mat_count + 1
 
         if mat_count == 10:
+            export_list_to_file("Gyro_data_raw", gyro_data_to_be_plotted)
+            export_list_to_file("Accel_data_raw", accel_data_to_be_plotted)
+
             # remove noise from accel data
             noiseless_accel = remove_noise_from_matrix(accel_data_to_be_plotted, ACCEL_RATE)
             # remove noise from gyro data
@@ -477,7 +482,7 @@ while True:
             save_data_as_plot_image(accel_data_to_be_plotted, title="Raw data accelerometer")
             save_data_as_plot_image(integral_accel_data, title="Integrated data accelerometer")
             save_data_as_plot_image(double_integrated_accel, title="Double integrated data accelerometer")
-            save_data_as_plot_image(position_without_gravity, title="Position without gravity")
+            save_data_as_plot_image(position_without_gravity, title="Position without gravity3")
 
             save_data_as_plot_image(noiseless_accel, title="Noiseless accelerometer")
             save_data_as_plot_image(noiseless_gyro, title="Noiseless gyroscope")
