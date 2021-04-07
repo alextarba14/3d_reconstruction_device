@@ -26,14 +26,9 @@ from mathematics.matrix import get_matrix_average, get_matrix_sum_by_columns, cr
     get_matrix_median, get_trapz_integral_by_time, get_indexes_of_valid_points, get_double_trapz_integral_by_time, \
     remove_gravity_from_accel_data
 from mathematics.vector import get_difference_item, get_texture_from_pointcloud
-from mathematics.transformations import apply_transformations
+from mathematics.transformations import apply_transformations, remove_noise_from_matrix
 from export.ply import export_numpy_array_to_ply, default_export_points
 from angle import Angle
-import cProfile
-
-import pandas as pd
-
-from pyntcloud import PyntCloud
 
 
 class AppState:
@@ -329,7 +324,7 @@ accel_state = [0, -9.81, 0, 1]
 accel_data_array = [[0 for x in range(3)] for y in range(threshold)]
 gyro_data_array = [[0 for x in range(3)] for y in range(threshold)]
 index = 0
-mat_count = 0
+mat_count = -1
 while True:
     # Grab camera data
     if not state.paused:
@@ -353,6 +348,8 @@ while True:
                 # Get accelerometer measurements
                 accel_data = motion_frame.get_motion_data()
                 accel_data_array[index] = [accel_data.x, accel_data.y, accel_data.z, timestamp]
+                # accel_data_array[index] = get_difference_item(accel_data_array, accel_data, index)
+                # accel_data_array[index].append(timestamp)
                 # print(accel_data)
             elif motion_frame and motion_frame.get_profile().stream_type() == rs.stream.gyro:
                 # Gyro frame
@@ -407,14 +404,7 @@ while True:
         texcoords = np.asanyarray(t).view(np.float32).reshape(-1, 2)  # uv
 
         if frame_count == 0:
-            # the first frame
-            valid_points_indexes = get_indexes_of_valid_points(verts)
-            vertices.append(verts[valid_points_indexes])
-            transf_matrices.append(np.zeros((4, 4), dtype=np.float32))
-            color_frames.append(color_frame)
-            tex_coords.append(texcoords[valid_points_indexes])
-
-            accel_state = accel_data_array[0]
+            # reject the first frame since it is has very dark texture
             continue
 
         index = frame_count % threshold
@@ -422,7 +412,9 @@ while True:
             print("Frame count:", frame_count)
             # get the position by double integrating the acceleration
             acceleration = remove_gravity_from_accel_data(accel_data_array, gyro_data_array, accel_state)
-            translation = get_double_trapz_integral_by_time(acceleration)
+            noiseless_acceleration = remove_noise_from_matrix(acceleration, ACCEL_RATE)
+            # noiseless_acceleration = acceleration
+            translation = get_double_trapz_integral_by_time(noiseless_acceleration)
 
             # update the accelerometer state with the last data
             accel_state = accel_data_array[9]
