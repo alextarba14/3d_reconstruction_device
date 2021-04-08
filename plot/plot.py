@@ -17,7 +17,7 @@ def save_data_as_plot_image(data_array, title="Plot"):
     plt.close()
 
 
-def plot_time_and_frequency(time_array,  PSD, frequency_array):
+def plot_time_and_frequency(time_array, PSD, frequency_array):
     """
     Plot both the time array and the Power Spectral Density from the Discrete FFT.
     """
@@ -25,7 +25,7 @@ def plot_time_and_frequency(time_array,  PSD, frequency_array):
     ax1 = fig.add_subplot(211)
     ax2 = fig.add_subplot(212)
 
-    ax1.plot(np.arange(0,len(time_array)), time_array, color='r', linewidth=1.5, linestyle='-.')
+    ax1.plot(np.arange(0, len(time_array)), time_array, color='r', linewidth=1.5, linestyle='-.')
     ax1.set_xlabel('Index')
     ax1.set_ylabel('Value')
 
@@ -36,4 +36,14 @@ def plot_time_and_frequency(time_array,  PSD, frequency_array):
     # use tight_layout to add space between subplots
     fig.tight_layout()
     plt.show()
+    plt.close()
+
+
+def plot_difference(first_array, second_array, timestamp, title="Difference"):
+    time = timestamp / 1000
+    plt.plot(time, first_array)
+    plt.plot(time, second_array)
+    plt.legend(['x', 'y'])
+    plt.title(title)
+    plt.savefig(title + ".png")
     plt.close()
