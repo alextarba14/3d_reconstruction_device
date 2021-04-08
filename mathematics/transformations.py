@@ -79,7 +79,7 @@ def remove_noise_from_data(array, sampling_rate):
     # Discrete Fourier Transform sample frequencies
     freq = np.fft.rfftfreq(n, d=(1. / sampling_rate))
 
-     # plot_time_and_frequency(array, PSD, freq)
+    # plot_time_and_frequency(array, PSD, freq)
 
     # removes all frequencies above the median value
     median_value = np.median(PSD)
@@ -118,3 +118,47 @@ def remove_noise_from_matrix(array, sampling_rate):
     # add the timestamp to the result -> np_array[:,3]
     result = np.array([updated_x, updated_y, updated_z, np_array[:, 3]])
     return result.transpose().tolist()
+
+
+def filtered_kalman(measurement):
+    """
+        ---------------------------------------------------------------
+        Predict next state:
+            updated[i] = F* updated[i-1] + B * u
+        Predict next covariance:
+            P[i] = F*P[i-1]*F_T + Q
+        Compute the Kalman gain:
+            K = P[i] * H_T/(H*P[i]*H_T + R)
+        Update the state estimate:
+            updated[i] = updated[i] + K*(measurement[i]-H*updated[i])
+        Update covariance estimation:
+            P[i] = (I-K*H)*P[i]
+        -----------------------------------------------------------------
+        F=1;
+        B=0;    no control input
+        H=1;    only one observable
+        Q=1e-9; process noise covariance
+        R;      observation noise covariance
+        I=1;    identity
+        -----------------------------------------------------------------
+        updated[i] = updated[i-1]
+        P[i] = P[i-1] + Q
+        K = P[i]/(P[i] + R)
+        updated[i] = updated[i] + K*(measurement[i]-updated[i])
+        P[i] = (1-K)*P[i]
+        -----------------------------------------------------------------
+        K = P[i]/(P[i] + R)
+        updated[i] = updated[i-1] + K*(measurement[i]-updated[i-1])
+        P[i] = (1-K)*P[i] + Q
+    """
+    length = measurement.size
+    updated = np.zeros(length)
+    P = 1
+    Q = 1e-8
+    R = 1e-6
+
+    for i in range(1, length):
+        K = P / (P + R)
+        updated[i] = updated[i - 1] + K * (measurement[i] - updated[i - 1])
+        P = (1 - K) * P + Q
+    return updated
