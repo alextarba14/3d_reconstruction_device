@@ -27,21 +27,21 @@ if __name__ == '__main__':
 
     # compute values on x axis
     updated = filtered_kalman(x_values)
-    plot_difference(x_values, updated, timestamp, "X_difference")
+    plot_difference(x_values, updated, timestamp, second_label="Kalman filter", title="X_gyro_difference")
 
     updated = filtered_kalman(y_values)
-    plot_difference(y_values, updated, timestamp, "Y_difference")
+    plot_difference(y_values, updated, timestamp, second_label="Kalman filter", title="Y_gyro_difference")
 
     updated = filtered_kalman(z_values)
-    plot_difference(z_values, updated, timestamp, "Z_difference")
+    plot_difference(z_values, updated, timestamp, second_label="Kalman filter", title="Z_gyro_difference")
 
     noiseless_gyro = remove_noise_from_matrix(gyro_data, GYRO_RATE)
     # noiseless_accel = remove_noise_from_matrix(accel_data, ACCEL_RATE)
 
     np_array_gyro = np.array(noiseless_gyro)
-    plot_difference(x_values, np_array_gyro[:,0], timestamp, "X_FFT_difference")
-    plot_difference(y_values, np_array_gyro[:,1], timestamp, "Y_FFT_difference")
-    plot_difference(z_values, np_array_gyro[:,2], timestamp, "Z_FFT_difference")
+    plot_difference(x_values, np_array_gyro[:, 0], timestamp, second_label="FFT", title="X_FFT_gyro_difference")
+    plot_difference(y_values, np_array_gyro[:, 1], timestamp, second_label="FFT", title="Y_FFT_gyro_difference")
+    plot_difference(z_values, np_array_gyro[:, 2], timestamp, second_label="FFT", title="Z_FFT_gyro_difference")
 
     x_values = accel_data[:, 0]
     y_values = accel_data[:, 1]
@@ -50,17 +50,17 @@ if __name__ == '__main__':
 
     # compute values on x axis
     updated = filtered_kalman(x_values)
-    plot_difference(x_values, updated, timestamp, "X_accel_difference")
+    plot_difference(x_values, updated, timestamp, second_label="Kalman filter", title="X_accel_difference")
 
     updated = filtered_kalman(y_values)
-    plot_difference(y_values, updated, timestamp, "Y_accel_difference")
+    plot_difference(y_values, updated, timestamp, second_label="Kalman filter", title="Y_accel_difference")
 
     updated = filtered_kalman(z_values)
-    plot_difference(z_values, updated, timestamp, "Z_accel_difference")
+    plot_difference(z_values, updated, timestamp, second_label="Kalman filter", title="Z_accel_difference")
 
     noiseless_accel = remove_noise_from_matrix(accel_data, ACCEL_RATE)
 
-    np_array_accel = np.array(noiseless_gyro)
-    plot_difference(x_values, np_array_accel[:,0], timestamp, "X_FFT_accel_difference")
-    plot_difference(y_values, np_array_accel[:,1], timestamp, "Y_FFT_accel_difference")
-    plot_difference(z_values, np_array_accel[:,2], timestamp, "Z_FFT_accel_difference")
+    np_array_accel = np.array(noiseless_accel)
+    plot_difference(x_values, np_array_accel[:, 0], timestamp, second_label="FFT", title="X_FFT_accel_difference")
+    plot_difference(y_values, np_array_accel[:, 1], timestamp, second_label="FFT", title="Y_FFT_accel_difference")
+    plot_difference(z_values, np_array_accel[:, 2], timestamp, second_label="FFT", title="Z_FFT_accel_difference")
