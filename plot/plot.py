@@ -39,11 +39,11 @@ def plot_time_and_frequency(time_array, PSD, frequency_array):
     plt.close()
 
 
-def plot_difference(first_array, second_array, timestamp, title="Difference"):
-    time = timestamp / 1000
+def plot_difference(first_array, second_array, timestamp, first_label="Raw_data", second_label="Transformed_data", title="Difference"):
+    time = (timestamp - timestamp[0]) / 1000
     plt.plot(time, first_array)
     plt.plot(time, second_array)
-    plt.legend(['x', 'y'])
+    plt.legend([first_label, second_label])
     plt.title(title)
     plt.savefig(title + ".png")
     plt.close()
