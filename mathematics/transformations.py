@@ -123,3 +123,71 @@ def remove_noise_from_matrix(array, sampling_rate):
     # add the timestamp to the result -> np_array[:,3]
     result = np.array([updated_x, updated_y, updated_z, np_array[:, 3]])
     return result.transpose().tolist()
+
+
+def filtered_kalman(measurement):
+    """
+        Compute the Kalman filter over the given measurement
+        Args:
+            measurement: a 1 dimensional numpy array or a list
+        Returns:
+            Filtered data
+        ---------------------------------------------------------------
+        Predict next state:
+            updated[i] = F* updated[i-1] + B * u
+        Predict next covariance:
+            P[i] = F*P[i-1]*F_T + Q
+        Compute the Kalman gain:
+            K = P[i] * H_T/(H*P[i]*H_T + R)
+        Update the state estimate:
+            updated[i] = updated[i] + K*(measurement[i]-H*updated[i])
+        Update covariance estimation:
+            P[i] = (I-K*H)*P[i]
+        -----------------------------------------------------------------
+        F=1;
+        B=0;    no control input
+        H=1;    only one observable
+        Q=1e-9; process noise covariance
+        R;      observation noise covariance
+        I=1;    identity
+        -----------------------------------------------------------------
+        updated[i] = updated[i-1]
+        P[i] = P[i-1] + Q
+        K = P[i]/(P[i] + R)
+        updated[i] = updated[i] + K*(measurement[i]-updated[i])
+        P[i] = (1-K)*P[i]
+        -----------------------------------------------------------------
+        K = P[i]/(P[i] + R)
+        updated[i] = updated[i-1] + K*(measurement[i]-updated[i-1])
+        P[i] = (1-K)*P[i] + Q
+    """
+    length = measurement.size
+    updated = np.zeros(length)
+    P = 1
+    Q = 1e-9
+    R = 1e-6
+
+    for i in range(1, length):
+        K = P / (P + R)
+        updated[i] = updated[i - 1] + K * (measurement[i] - updated[i - 1])
+        P = (1 - K) * P + Q
+    return updated
+
+
+def get_kalman_filtered_data(data_list):
+    """
+    Filter the data on all 3 axis using the Kalman filter
+    and return the data in the list format having the timestamp on the 4th column.
+    """
+    array = np.array(data_list)
+    x_values = array[:, 0]
+    y_values = array[:, 1]
+    z_values = array[:, 2]
+
+    filtered_x = filtered_kalman(x_values)
+    filtered_y = filtered_kalman(y_values)
+    filtered_z = filtered_kalman(z_values)
+
+    # add the timestamp to the result -> np_array[:,3]
+    result = np.array([filtered_x, filtered_y, filtered_z, array[:, 3]])
+    return result.transpose().tolist()
