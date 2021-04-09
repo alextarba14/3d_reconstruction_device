@@ -122,6 +122,11 @@ def remove_noise_from_matrix(array, sampling_rate):
 
 def filtered_kalman(measurement):
     """
+        Compute the Kalman filter over the given measurement
+        Args:
+            measurement: a 1 dimensional numpy array or a list
+        Returns:
+            Filtered data
         ---------------------------------------------------------------
         Predict next state:
             updated[i] = F* updated[i-1] + B * u
@@ -154,7 +159,7 @@ def filtered_kalman(measurement):
     length = measurement.size
     updated = np.zeros(length)
     P = 1
-    Q = 1e-8
+    Q = 1e-9
     R = 1e-6
 
     for i in range(1, length):
@@ -162,3 +167,22 @@ def filtered_kalman(measurement):
         updated[i] = updated[i - 1] + K * (measurement[i] - updated[i - 1])
         P = (1 - K) * P + Q
     return updated
+
+
+def get_kalman_filtered_data(data_list):
+    """
+    Filter the data on all 3 axis using the Kalman filter
+    and return the data in the list format having the timestamp on the 4th column.
+    """
+    array = np.array(data_list)
+    x_values = array[:, 0]
+    y_values = array[:, 1]
+    z_values = array[:, 2]
+
+    filtered_x = filtered_kalman(x_values)
+    filtered_y = filtered_kalman(y_values)
+    filtered_z = filtered_kalman(z_values)
+
+    # add the timestamp to the result -> np_array[:,3]
+    result = np.array([filtered_x, filtered_y, filtered_z, array[:, 3]])
+    return result.transpose().tolist()
