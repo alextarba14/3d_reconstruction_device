@@ -41,15 +41,19 @@ class KalmanFilter:
     def __init__(self, ):
         self.P = 1
         self.Q = 1e-9
-        self.R = 1e-6
+        self.R = 1e-8
+        self.last_value = 0
 
     def filter_data(self, measurement):
         length = measurement.size
         updated = np.zeros(length)
+        previous = self.last_value
 
-        for i in range(1, length):
+        for i in range(0, length):
             K = self.P / (self.P + self.R)
-            updated[i] = updated[i - 1] + K * (measurement[i] - updated[i - 1])
+            updated[i] = previous + K * (measurement[i] - previous)
             self.P = (1 - K) * self.P + self.Q
+            previous = updated[i]
 
+        self.last_value = previous
         return updated
