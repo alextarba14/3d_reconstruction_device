@@ -159,13 +159,16 @@ def filtered_kalman(measurement):
     length = measurement.size
     updated = np.zeros(length)
     P = 1
-    Q = 1e-9
-    R = 1e-6
+    Q = 1e-10
+    R = 1e-7
+    previous = 0
 
-    for i in range(1, length):
+    for i in range(0, length):
         K = P / (P + R)
-        updated[i] = updated[i - 1] + K * (measurement[i] - updated[i - 1])
+        updated[i] = previous + K * (measurement[i] - previous)
         P = (1 - K) * P + Q
+        previous = updated[i]
+
     return updated
 
 
