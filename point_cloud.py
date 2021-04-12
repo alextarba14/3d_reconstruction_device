@@ -356,7 +356,7 @@ while True:
                 timestamp = motion_frame.get_timestamp()
                 accel_data = motion_frame.get_motion_data()
                 accel_data_array[index] = [accel_data.x, accel_data.y, accel_data.z, timestamp]
-                accel_data_to_be_plotted.append([accel_data.x, accel_data.y, accel_data.z, timestamp])
+                # accel_data_to_be_plotted.append([accel_data.x, accel_data.y, accel_data.z, timestamp])
                 # print(accel_data)
             elif motion_frame and motion_frame.get_profile().stream_type() == rs.stream.gyro:
                 # Gyro frame
@@ -429,6 +429,7 @@ while True:
             print("Frame count:", frame_count)
             # Removing gravity from accelerometer data
             acceleration = remove_gravity_from_accel_data(accel_data_array, gyro_data_array, accel_state)
+            accel_data_to_be_plotted.extend(acceleration)
             noiseless_acceleration = remove_noise_from_matrix(acceleration, ACCEL_RATE)
             integrated = get_double_trapz_integral_by_time(noiseless_acceleration)
             # add the timestamp
