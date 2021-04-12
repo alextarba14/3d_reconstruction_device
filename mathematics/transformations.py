@@ -1,5 +1,6 @@
 import numpy as np
 import time
+from mathematics.kalman_filter import KalmanFilter
 
 
 def apply_transformations(pointclouds, transf_matrices):
@@ -70,6 +71,72 @@ def apply_next_transformations_to_current_pointcloud(current_pointcloud, index, 
     return current_pointcloud
 
 
+def apply_transformations_in_reverse_order(pointclouds, transf_matrices):
+    """
+    Apply transformation to each pointcloud by multiplying with their correspondent transformation matrix.
+    P' = P*Tr_matrix
+    Each pointcloud has a transformation matrix associated that represents the transformations that has been done
+    until from the previous pointcloud to the current pointcloud.
+    It will multiply each pointcloud with his previous transformation matrix and update the pointcloud
+    """
+    start_time_function = time.time()
+    print("apply_transformations started at: ", start_time_function)
+
+    length = len(pointclouds)
+    index = length - 1
+    while index >= 0:
+        start_time_index = time.time()
+        print(f'Started index: {index} at: ', start_time_index)
+        current_pointcloud = pointclouds[index]
+        pointclouds[index] = apply_previous_transformations_to_current_pointcloud(current_pointcloud, index,
+                                                                                  transf_matrices, length)
+
+        print(f'Stopped index: {index} after: ', time.time() - start_time_index)
+        index = index - 1
+
+    print("Ended after: ", time.time() - start_time_function)
+    return pointclouds
+
+
+def apply_previous_transformations_to_current_pointcloud(current_pointcloud, index, transf_matrices, length):
+    """
+    Apply all future transformations that have happened after the current pointcloud.
+    Multiply current_pointcloud[i] with all transformation matrices from [i+1, length).
+    Each transformation matrix is in shape(4,4), but a point from current_pointcloud is in (1,3) shape.
+    A column full of ones has been appended to the pointcloud to allow multiplication.
+    current_pointcloud(1,4) *  transf_matrix(4,4) = pointcloud(1,4), the result will be in the (x,y,z,1) format
+    after multiplications the end column will be removed.
+    """
+    if index == 0:
+        return current_pointcloud
+    # append a column full of ones at the end
+    pc_length = len(current_pointcloud)
+    ones = np.ones((pc_length, 1), dtype=np.float32)
+    current_pointcloud = np.append(current_pointcloud, ones, axis=1)
+
+    # apply transformations for each pointcloud
+    j = index
+    while j >= 0:
+        start_time = time.time()
+        print(f'Started j: {j} at: ', start_time)
+        current_transf_matrix = transf_matrices[j]
+
+        # for i in range(pc_length):
+        #     # multiply Tr*p = p' (obtaining points based referenced at previous system information)
+        #     current_pointcloud[i] = current_transf_matrix.dot(current_pointcloud[i])
+        # or
+        # current_pointcloud = np.einsum("ij,kj->ik", current_pointcloud, current_transf_matrix)
+        # or
+        # current_pointcloud = current_pointcloud.dot(current_transf_matrix)
+        current_pointcloud = current_pointcloud @ current_transf_matrix
+        j = j - 1
+        print(f'Stopped j: {j} after: ', time.time() - start_time)
+
+    # removing the last column since it was added to perform dot product between vector[1x(3+1)] and transform matrix[4x4]
+    current_pointcloud = np.delete(current_pointcloud, 3, axis=1)
+    return current_pointcloud
+
+
 def remove_noise_from_data(array, sampling_rate):
     """
     It computes the FFT of the array and the Power Spectral Density.
@@ -125,56 +192,7 @@ def remove_noise_from_matrix(array, sampling_rate):
     return result.transpose().tolist()
 
 
-def filtered_kalman(measurement):
-    """
-        Compute the Kalman filter over the given measurement
-        Args:
-            measurement: a 1 dimensional numpy array or a list
-        Returns:
-            Filtered data
-        ---------------------------------------------------------------
-        Predict next state:
-            updated[i] = F* updated[i-1] + B * u
-        Predict next covariance:
-            P[i] = F*P[i-1]*F_T + Q
-        Compute the Kalman gain:
-            K = P[i] * H_T/(H*P[i]*H_T + R)
-        Update the state estimate:
-            updated[i] = updated[i] + K*(measurement[i]-H*updated[i])
-        Update covariance estimation:
-            P[i] = (I-K*H)*P[i]
-        -----------------------------------------------------------------
-        F=1;
-        B=0;    no control input
-        H=1;    only one observable
-        Q=1e-9; process noise covariance
-        R;      observation noise covariance
-        I=1;    identity
-        -----------------------------------------------------------------
-        updated[i] = updated[i-1]
-        P[i] = P[i-1] + Q
-        K = P[i]/(P[i] + R)
-        updated[i] = updated[i] + K*(measurement[i]-updated[i])
-        P[i] = (1-K)*P[i]
-        -----------------------------------------------------------------
-        K = P[i]/(P[i] + R)
-        updated[i] = updated[i-1] + K*(measurement[i]-updated[i-1])
-        P[i] = (1-K)*P[i] + Q
-    """
-    length = measurement.size
-    updated = np.zeros(length)
-    P = 1
-    Q = 1e-9
-    R = 1e-6
-
-    for i in range(1, length):
-        K = P / (P + R)
-        updated[i] = updated[i - 1] + K * (measurement[i] - updated[i - 1])
-        P = (1 - K) * P + Q
-    return updated
-
-
-def get_kalman_filtered_data(data_list):
+def get_kalman_filtered_data(data_list, kalman_filter: KalmanFilter):
     """
     Filter the data on all 3 axis using the Kalman filter
     and return the data in the list format having the timestamp on the 4th column.
@@ -184,9 +202,9 @@ def get_kalman_filtered_data(data_list):
     y_values = array[:, 1]
     z_values = array[:, 2]
 
-    filtered_x = filtered_kalman(x_values)
-    filtered_y = filtered_kalman(y_values)
-    filtered_z = filtered_kalman(z_values)
+    filtered_x = kalman_filter.filter_data(x_values)
+    filtered_y = kalman_filter.filter_data(y_values)
+    filtered_z = kalman_filter.filter_data(z_values)
 
     # add the timestamp to the result -> np_array[:,3]
     result = np.array([filtered_x, filtered_y, filtered_z, array[:, 3]])
