@@ -199,4 +199,7 @@ def remove_gravity_from_accel_data(accel_data_array, gyro_data_array, accel_stat
         current_accel_data[:3] -= current_rotated[:3]
         adjusted_accel_data.append(current_accel_data)
 
+        # update the current state of the accelerometer as the last accel_data value
+        accel_state_array = np.array(accel_data_array[i])
+
     return adjusted_accel_data
