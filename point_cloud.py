@@ -26,7 +26,8 @@ from mathematics.matrix import get_matrix_average, get_matrix_sum_by_columns, cr
     get_matrix_median, get_trapz_integral_by_time, get_indexes_of_valid_points, get_double_trapz_integral_by_time, \
     remove_gravity_from_accel_data
 from mathematics.vector import get_difference_item, get_texture_from_pointcloud
-from mathematics.transformations import apply_transformations, remove_noise_from_matrix
+from mathematics.transformations import apply_transformations, get_kalman_filtered_data
+from mathematics.kalman_filter import KalmanFilter
 from export.ply import export_numpy_array_to_ply, default_export_points
 from angle import Angle
 
@@ -323,6 +324,9 @@ frame_count = -1
 accel_state = [0, -9.81, 0, 1]
 accel_data_array = [[0 for x in range(3)] for y in range(threshold)]
 gyro_data_array = [[0 for x in range(3)] for y in range(threshold)]
+# instantiate two different KalmanFilter objects for each gyro and accelerometer
+accel_KF = KalmanFilter()
+gyro_KF = KalmanFilter()
 index = 0
 mat_count = -1
 while True:
@@ -410,9 +414,12 @@ while True:
         index = frame_count % threshold
         if index == 0:
             print("Frame count:", frame_count)
-            # get the position by double integrating the acceleration
-            acceleration = remove_gravity_from_accel_data(accel_data_array, gyro_data_array, accel_state)
-            noiseless_acceleration = remove_noise_from_matrix(acceleration, ACCEL_RATE)
+            # remove noise from gyro data using the Kalman filter
+            noiseless_gyro = get_kalman_filtered_data(gyro_data_array, gyro_KF)
+            # remove the gravity from the acceleration samples using noiseless gyro data
+            acceleration = remove_gravity_from_accel_data(accel_data_array, noiseless_gyro, accel_state)
+            # remove noise from acceleration data using the Kalman filter
+            noiseless_acceleration = get_kalman_filtered_data(acceleration, accel_KF)
             # noiseless_acceleration = acceleration
             translation = get_double_trapz_integral_by_time(noiseless_acceleration)
 
@@ -440,7 +447,7 @@ while True:
 
             mat_count = mat_count + 1
 
-        if mat_count == 10:
+        if mat_count == 7:
             updated_pointclouds = apply_transformations(vertices, transf_matrices)
             for index in range(len(updated_pointclouds)):
                 texture = get_texture_from_pointcloud(updated_pointclouds[index], tex_coords[index],
