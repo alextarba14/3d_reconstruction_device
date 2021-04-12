@@ -192,7 +192,8 @@ def remove_noise_from_matrix(array, sampling_rate):
     return result.transpose().tolist()
 
 
-def get_kalman_filtered_data(data_list, kalman_filter: KalmanFilter):
+def get_kalman_filtered_data(data_list, kalman_filter_x: KalmanFilter, kalman_filter_y: KalmanFilter,
+                             kalman_filter_z: KalmanFilter):
     """
     Filter the data on all 3 axis using the Kalman filter
     and return the data in the list format having the timestamp on the 4th column.
@@ -202,9 +203,9 @@ def get_kalman_filtered_data(data_list, kalman_filter: KalmanFilter):
     y_values = array[:, 1]
     z_values = array[:, 2]
 
-    filtered_x = kalman_filter.filter_data(x_values)
-    filtered_y = kalman_filter.filter_data(y_values)
-    filtered_z = kalman_filter.filter_data(z_values)
+    filtered_x = kalman_filter_x.filter_data(x_values)
+    filtered_y = kalman_filter_y.filter_data(y_values)
+    filtered_z = kalman_filter_z.filter_data(z_values)
 
     # add the timestamp to the result -> np_array[:,3]
     result = np.array([filtered_x, filtered_y, filtered_z, array[:, 3]])

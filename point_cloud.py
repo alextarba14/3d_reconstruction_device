@@ -325,8 +325,12 @@ accel_state = [0, -9.81, 0, 1]
 accel_data_array = [[0 for x in range(3)] for y in range(threshold)]
 gyro_data_array = [[0 for x in range(3)] for y in range(threshold)]
 # instantiate two different KalmanFilter objects for each gyro and accelerometer
-accel_KF = KalmanFilter()
-gyro_KF = KalmanFilter()
+accel_KF_x = KalmanFilter()
+accel_KF_y = KalmanFilter()
+accel_KF_z = KalmanFilter()
+gyro_KF_x = KalmanFilter()
+gyro_KF_y = KalmanFilter()
+gyro_KF_z = KalmanFilter()
 index = 0
 mat_count = -1
 while True:
@@ -415,11 +419,11 @@ while True:
         if index == 0:
             print("Frame count:", frame_count)
             # remove noise from gyro data using the Kalman filter
-            noiseless_gyro = get_kalman_filtered_data(gyro_data_array, gyro_KF)
+            noiseless_gyro = get_kalman_filtered_data(gyro_data_array, gyro_KF_x, gyro_KF_y, gyro_KF_z)
             # remove the gravity from the acceleration samples using noiseless gyro data
             acceleration = remove_gravity_from_accel_data(accel_data_array, noiseless_gyro, accel_state)
             # remove noise from acceleration data using the Kalman filter
-            noiseless_acceleration = get_kalman_filtered_data(acceleration, accel_KF)
+            noiseless_acceleration = get_kalman_filtered_data(acceleration, accel_KF_x, accel_KF_y, accel_KF_z)
             # noiseless_acceleration = acceleration
             translation = get_double_trapz_integral_by_time(noiseless_acceleration)
 
