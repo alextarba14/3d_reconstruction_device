@@ -38,10 +38,14 @@ class KalmanFilter:
         P[i] = (1-K)*P[i] + Q
     """
 
-    def __init__(self, ):
+    def __init__(self, obs_noise_covariance=None):
         self.P = 1
-        self.Q = 1e-10
-        self.R = 1e-7
+        self.Q = 1e-6
+        if obs_noise_covariance:
+            self.R = obs_noise_covariance
+        else:
+            self.R = 1e-7
+
         self.last_value = 0
 
     def filter_data(self, measurement):
