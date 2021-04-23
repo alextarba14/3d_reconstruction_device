@@ -1,16 +1,11 @@
+# License: Apache 2.0. See LICENSE file in root directory.
+# Copyright(c) 2015-2017 Intel Corporation. All Rights Reserved.
+
 """
-Usage:
+OpenCV and Numpy Point cloud Software Renderer
 ------
-Mouse:
-    Drag with left button to rotate around pivot (thick small axes),
-    with right button to translate and the wheel to zoom.
 Keyboard:
-    [p]     Pause
-    [r]     Reset View
     [d]     Cycle through decimation values
-    [z]     Toggle point scaling
-    [c]     Toggle color source
-    [s]     Save PNG (./out.png)
     [e]     Export points to ply (./out.ply)
     [q\ESC] Quit
 """
@@ -20,8 +15,10 @@ import time
 import cv2
 import numpy as np
 import pyrealsense2 as rs
-from motion import process_gyro, process_accel
-from angle import Angle
+import time
+from input_output.ply import default_export_points, export_numpy_array_to_ply
+from processing.process import get_texture_from_pointcloud
+
 
 class AppState:
 
@@ -31,17 +28,15 @@ class AppState:
         self.translation = np.array([0, 0, -1], dtype=np.float32)
         self.distance = 2
         self.prev_mouse = 0, 0
-        self.prev_position = 0, 0
         self.mouse_btns = [False, False, False]
         self.paused = False
-        self.decimate = 1
+        self.decimate = 2
         self.scale = True
         self.color = True
 
     def reset(self):
         self.pitch, self.yaw, self.distance = 0, 0, 2
         self.translation[:] = 0, 0, -1
-        out.fill(0)
 
     @property
     def rotation(self):
@@ -53,21 +48,15 @@ class AppState:
     def pivot(self):
         return self.translation + np.array((0, 0, self.distance), dtype=np.float32)
 
+
 state = AppState()
 
-# Configure gyro, accel, depth and color streams
+# Configure depth and color streams
 pipeline = rs.pipeline()
 config = rs.config()
 
-# Configuring streams at different rates
-# Accelerometer available FPS: {63, 250}Hz
-config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 250)
-# Gyroscope available FPS: {200,400}Hz
-config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 200)
-# enabling depth stream
-config.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 30)
-# enabling color stream
-config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
+config.enable_stream(rs.stream.depth, rs.format.z16, 30)
+config.enable_stream(rs.stream.color, rs.format.bgr8, 30)
 
 # Start streaming
 pipeline.start(config)
@@ -81,66 +70,11 @@ w, h = depth_intrinsics.width, depth_intrinsics.height
 # Processing blocks
 pc = rs.pointcloud()
 decimate = rs.decimation_filter()
-decimate.set_option(rs.option.filter_magnitude, 2 ** state.decimate)
+decimate.set_option(rs.option.filter_magnitude, 3)
 colorizer = rs.colorizer()
-
-# used to prevent false camera rotation
-first = True
-
-def mouse_cb(event, x, y, flags, param):
-
-    if event == cv2.EVENT_LBUTTONDOWN:
-        state.mouse_btns[0] = True
-
-    if event == cv2.EVENT_LBUTTONUP:
-        state.mouse_btns[0] = False
-
-    if event == cv2.EVENT_RBUTTONDOWN:
-        state.mouse_btns[1] = True
-
-    if event == cv2.EVENT_RBUTTONUP:
-        state.mouse_btns[1] = False
-
-    if event == cv2.EVENT_MBUTTONDOWN:
-        state.mouse_btns[2] = True
-
-    if event == cv2.EVENT_MBUTTONUP:
-        state.mouse_btns[2] = False
-
-    if event == cv2.EVENT_MOUSEMOVE:
-
-        h, w = out.shape[:2]
-        # dx, dy din accelerometru din 2 frame-uri consecutive
-        # inlocuiesc miscarea mouse-ului
-        # in while True
-        # dezactivare ms callback
-        # frustrum | fara out.fill(0)
-        dx, dy = x - state.prev_mouse[0], y - state.prev_mouse[1]
-
-        if state.mouse_btns[0]:
-            state.yaw += float(dx) / w * 2
-            state.pitch -= float(dy) / h * 2
-
-        elif state.mouse_btns[1]:
-            dp = np.array((dx / w, dy / h, 0), dtype=np.float32)
-            state.translation -= np.dot(state.rotation, dp)
-
-        elif state.mouse_btns[2]:
-            dz = math.sqrt(dx**2 + dy**2) * math.copysign(0.01, -dy)
-            state.translation[2] += dz
-            state.distance -= dz
-
-    if event == cv2.EVENT_MOUSEWHEEL:
-        dz = math.copysign(0.1, flags)
-        state.translation[2] += dz
-        state.distance -= dz
-
-    state.prev_mouse = (x, y)
-
 
 cv2.namedWindow(state.WIN_NAME, cv2.WINDOW_AUTOSIZE)
 cv2.resizeWindow(state.WIN_NAME, w, h)
-cv2.setMouseCallback(state.WIN_NAME, mouse_cb)
 
 
 def project(v):
@@ -164,67 +98,6 @@ def view(v):
     return np.dot(v - state.pivot, state.rotation) + state.pivot - state.translation
 
 
-def line3d(out, pt1, pt2, color=(0x80, 0x80, 0x80), thickness=1):
-    """draw a 3d line from pt1 to pt2"""
-    p0 = project(pt1.reshape(-1, 3))[0]
-    p1 = project(pt2.reshape(-1, 3))[0]
-    if np.isnan(p0).any() or np.isnan(p1).any():
-        return
-    p0 = tuple(p0.astype(int))
-    p1 = tuple(p1.astype(int))
-    rect = (0, 0, out.shape[1], out.shape[0])
-    inside, p0, p1 = cv2.clipLine(rect, p0, p1)
-    if inside:
-        cv2.line(out, p0, p1, color, thickness, cv2.LINE_AA)
-
-
-def grid(out, pos, rotation=np.eye(3), size=1, n=10, color=(0x80, 0x80, 0x80)):
-    """draw a grid on xz plane"""
-    pos = np.array(pos)
-    s = size / float(n)
-    s2 = 0.5 * size
-    for i in range(0, n+1):
-        x = -s2 + i*s
-        line3d(out, view(pos + np.dot((x, 0, -s2), rotation)),
-               view(pos + np.dot((x, 0, s2), rotation)), color)
-    for i in range(0, n+1):
-        z = -s2 + i*s
-        line3d(out, view(pos + np.dot((-s2, 0, z), rotation)),
-               view(pos + np.dot((s2, 0, z), rotation)), color)
-
-
-def axes(out, pos, rotation=np.eye(3), size=0.075, thickness=2):
-    """draw 3d axes"""
-    line3d(out, pos, pos +
-           np.dot((0, 0, size), rotation), (0xff, 0, 0), thickness)
-    line3d(out, pos, pos +
-           np.dot((0, size, 0), rotation), (0, 0xff, 0), thickness)
-    line3d(out, pos, pos +
-           np.dot((size, 0, 0), rotation), (0, 0, 0xff), thickness)
-
-
-def frustum(out, intrinsics, color=(0xF0, 0xF0, 0xF0)):
-    """draw camera's frustum"""
-    orig = view([0, 0, 0])
-    w, h = intrinsics.width, intrinsics.height
-
-    for d in range(1, 6, 2):
-        def get_point(x, y):
-            p = rs.rs2_deproject_pixel_to_point(intrinsics, [x, y], d)
-            line3d(out, orig, view(p), color)
-            return p
-
-        top_left = get_point(0, 0)
-        top_right = get_point(w, 0)
-        bottom_right = get_point(w, h)
-        bottom_left = get_point(0, h)
-
-        line3d(out, view(top_left), view(top_right), color)
-        line3d(out, view(top_right), view(bottom_right), color)
-        line3d(out, view(bottom_right), view(bottom_left), color)
-        line3d(out, view(bottom_left), view(top_left), color)
-
-
 def pointcloud(out, verts, texcoords, color, painter=True):
     """draw point cloud with optional painter's algorithm"""
     if painter:
@@ -233,7 +106,6 @@ def pointcloud(out, verts, texcoords, color, painter=True):
         # get reverse sorted indices by z (in view-space)
         # https://gist.github.com/stevenvo/e3dad127598842459b68
         v = view(verts)
-        # returns indices in reverse order
         s = v[:, 2].argsort()[::-1]
         proj = project(v[s])
     else:
@@ -267,7 +139,7 @@ def pointcloud(out, verts, texcoords, color, painter=True):
     # perform uv-mapping
     out[i[m], j[m]] = color[u[m], v[m]]
 
-# initializing empty 3D array
+
 out = np.empty((h, w, 3), dtype=np.uint8)
 
 while True:
@@ -278,41 +150,6 @@ while True:
 
         depth_frame = frames.get_depth_frame()
         color_frame = frames.get_color_frame()
-
-        theta = Angle(0, 0, 0)
-        for frame in frames:
-            if frame.frame_number != depth_frame.frame_number and \
-                    frame.frame_number != color_frame.frame_number:
-                motion_frame = frame.as_motion_frame()
-                if motion_frame and motion_frame.get_profile().stream_type() == rs.stream.accel:
-                    # Accelerometer frame
-                    # Get accelerometer measurements
-                    accel_data = motion_frame.get_motion_data()
-                    theta = process_accel(accel_data)
-                elif motion_frame and motion_frame.get_profile().stream_type() == rs.stream.gyro:
-                    # Gyro frame
-                    # Get the timestamp of current frame
-                    timestamp = motion_frame.get_timestamp()
-                    # Get gyro measurements
-                    gyro_data = motion_frame.get_motion_data()
-                    theta = process_gyro(gyro_data, timestamp)
-
-                h, w = out.shape[:2]
-
-                # Getting first rotation information in order to prevent
-                # a false rotation because the previous positions were 0,0
-                if first:
-                    first = False
-                    state.prev_position = (theta.x, theta.y)
-                # getting movement
-                dx, dy = theta.x - state.prev_position[0], theta.y - state.prev_position[1]
-
-                # updating view with new movement values
-                state.yaw += float(dy)
-                state.pitch -= float(dx)
-
-                # updating current position
-                state.prev_position = (theta.x, theta.y)
 
         depth_frame = decimate.process(depth_frame)
 
@@ -343,12 +180,10 @@ while True:
     # Render
     now = time.time()
 
-    # refreshing output
     out.fill(0)
 
-
     # grid(out, (0, 0.5, 1), size=1, n=10)
-    frustum(out, depth_intrinsics)
+    # frustum(out, depth_intrinsics)
     # axes(out, view([0, 0, 0]), state.rotation, size=0.1, thickness=1)
 
     if not state.scale or out.shape[:2] == (h, w):
@@ -360,9 +195,6 @@ while True:
             tmp, out.shape[:2][::-1], interpolation=cv2.INTER_NEAREST)
         np.putmask(out, tmp > 0, tmp)
 
-    if any(state.mouse_btns):
-        axes(out, view(state.pivot), state.rotation, thickness=4)
-
     dt = time.time() - now
 
     cv2.setWindowTitle(
@@ -372,27 +204,15 @@ while True:
     cv2.imshow(state.WIN_NAME, out)
     key = cv2.waitKey(1)
 
-    if key == ord("r"):
-        state.reset()
-
-    if key == ord("p"):
-        state.paused ^= True
-
     if key == ord("d"):
         state.decimate = (state.decimate + 1) % 3
         decimate.set_option(rs.option.filter_magnitude, 2 ** state.decimate)
 
-    if key == ord("z"):
-        state.scale ^= True
-
-    if key == ord("c"):
-        state.color ^= True
-
-    if key == ord("s"):
-        cv2.imwrite('./out.png', out)
-
     if key == ord("e"):
-        points.export_to_ply('./out.ply', mapped_frame)
+        # points.export_to_ply('./out.ply', mapped_frame)
+        # default_export_points(points)
+        texture = get_texture_from_pointcloud(verts, texcoords, color_frame)
+        export_numpy_array_to_ply(verts, texture, f'{time.time()}.ply')
 
     if key in (27, ord("q")) or cv2.getWindowProperty(state.WIN_NAME, cv2.WND_PROP_AUTOSIZE) < 0:
         break
