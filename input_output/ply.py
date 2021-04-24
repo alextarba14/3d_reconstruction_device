@@ -9,10 +9,10 @@ def export_numpy_array_to_ply(verts, texture, file_name="test.ply", rotate_colum
         verts[:, 2] *= -1
 
     # concatenate both vertices and texture in one array with (length, 5) shape
-    verts = np.concatenate((verts, texture), axis=1)
+    data = np.concatenate((verts, texture), axis=1)
 
     # construct the header
-    length = len(verts)
+    length = len(data)
     header = """ply
 format ascii 1.0
 comment pointcloud saved from PyCharm
@@ -25,7 +25,7 @@ property uchar green
 property uchar red
 end_header""".format(length=length)
 
-    np.savetxt(file_name, verts, fmt="%.6g", header=header, delimiter=" ", comments="")
+    np.savetxt(file_name, data, fmt="%.6g", header=header, delimiter=" ", comments="")
 
 
 def default_export_points(points, file_name="default.ply"):
