@@ -1,8 +1,5 @@
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
-from sklearn.linear_model import ARDRegression
-import random
-import time
 
 def best_fit_transform(A, B):
     """
@@ -12,8 +9,6 @@ def best_fit_transform(A, B):
       B: nxm numpy array of corresponding points
     Returns:
       T: (m+1)x(m+1) homogeneous transformation matrix that maps A on to B
-      R: mxm rotation matrix
-      t: mx1 translation vector
     """
 
     assert A.shape == B.shape
@@ -47,7 +42,7 @@ def best_fit_transform(A, B):
     T[:m, :m] = R
     T[:m, m] = t
 
-    return T, R, t
+    return T
 
 
 def nearest_neighbor(src, dst):
@@ -73,17 +68,17 @@ def nearest_neighbor(src, dst):
     return distances.ravel(), indices.ravel()
 
 
-def icp(A, B, init_pose=None, max_iterations=30, tolerance=0.001):
+def icp(A, B, initial_transformation=None, max_iterations=25, tolerance=0.001):
     """
     The Iterative Closest Point method: finds best-fit transform that maps points A on to points B
     Input:
         A: nxm numpy array of source mD points
         B: nxm numpy array of destination mD points
-        init_pose: (m+1)x(m+1) homogeneous transformation
+        initial_transformation: (m+1)x(m+1) homogeneous transformation
         max_iterations: exit algorithm after max_iterations
         tolerance: convergence criteria
     Output:
-        T: final homogeneous transformation that maps A on to B
+        best_T: the closest homogeneous transformation that maps A on to B
         distances: Euclidean distances (errors) of the nearest neighbor
         i: number of iterations to converge
     """
@@ -99,17 +94,18 @@ def icp(A, B, init_pose=None, max_iterations=30, tolerance=0.001):
     src[:m, :] = np.copy(A.T)
     dst[:m, :] = np.copy(B.T)
 
-    # apply the initial pose estimation
-    if init_pose is not None:
-        src = np.dot(init_pose, src)
+    # apply the initial transformation estimation
+    if initial_transformation is not None:
+        src = initial_transformation @ src
 
     best_fit = np.inf
+    nr_hits = 0
     for i in range(max_iterations):
         # find the nearest neighbors between the current source and destination points
         distances, indices = nearest_neighbor(src[:m, :].T, dst[:m, :].T)
 
         # compute the transformation between the current source and nearest destination points
-        T, _, _ = best_fit_transform(src[:m, :].T, dst[:m, indices].T)
+        T = best_fit_transform(src[:m, :].T, dst[:m, indices].T)
 
         # update the current source
         src = np.dot(T, src)
@@ -120,12 +116,23 @@ def icp(A, B, init_pose=None, max_iterations=30, tolerance=0.001):
             break
         if best_fit > mean_error:
             best_fit = mean_error
-            copy_src = src.copy()
-            copy_T = T.copy()
+            best_src = src.copy()
+            # reset number of improvements
+            nr_hits = 0
             print("Best_fit: ", best_fit)
+        else:
+            nr_hits = nr_hits + 1
+
+        # close the loop when the mean_error didn't dropped for three times in a row
+        if nr_hits > 2:
+            break
         print(f'Step {i} from {max_iterations}...')
 
     # calculate final transformation
-    T, _, _ = best_fit_transform(A, src[:m, :].T)
+    best_T = best_fit_transform(best_src[:m, :].T, A)
 
-    return copy_T, distances, i, copy_src.T
+    # # remove the extra ones from the src before returning it
+    # best_src = best_src.T
+    # best_src = np.delete(best_src, 3, axis=1)
+
+    return best_T
