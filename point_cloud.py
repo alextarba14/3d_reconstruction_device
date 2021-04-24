@@ -17,6 +17,9 @@ import numpy as np
 import pyrealsense2 as rs
 import time
 from input_output.ply import default_export_points, export_numpy_array_to_ply
+from mathematics.matrix import get_trapz_integral_by_time, create_rotation_matrix, create_transformation_matrix
+from mathematics.transformations import apply_transformations
+from processing.icp import icp
 from processing.process import get_texture_from_pointcloud
 
 
@@ -58,7 +61,19 @@ config = rs.config()
 config.enable_stream(rs.stream.depth, rs.format.z16, 30)
 config.enable_stream(rs.stream.color, rs.format.bgr8, 30)
 
-# Start streaming
+# Create a different pipeline for IMU
+imu_pipeline = rs.pipeline()
+imu_config = rs.config()
+# Configuring streams at different rates
+# Accelerometer available FPS: {63, 250}Hz
+imu_config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 250)  # acceleration
+# Gyroscope available FPS: {200,400}Hz
+imu_config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 200)  # gyroscope
+
+# Start streaming IMU
+imu_profile = imu_pipeline.start(imu_config)
+
+# Start streaming color & depth
 pipeline.start(config)
 
 # Get stream profile and camera intrinsics
@@ -142,6 +157,19 @@ def pointcloud(out, verts, texcoords, color, painter=True):
 
 out = np.empty((h, w, 3), dtype=np.uint8)
 
+vertices_array = []
+tex_coords_array = []
+color_frames = []
+transf_matrices = []
+
+threshold = 30
+frame_count = -1
+accel_state = [0, -9.81, 0, 1]
+accel_data_array = [[0 for x in range(3)] for y in range(threshold)]
+gyro_data_array = [[0 for x in range(3)] for y in range(threshold)]
+
+index = 0
+mat_count = -1
 while True:
     # Grab camera data
     if not state.paused:
@@ -150,6 +178,29 @@ while True:
 
         depth_frame = frames.get_depth_frame()
         color_frame = frames.get_color_frame()
+
+        frame_count = frame_count + 1
+
+        # Wait for a coherent pair of frames: gyro and accel
+        imu_frames = imu_pipeline.wait_for_frames()
+
+        for frame in imu_frames:
+            motion_frame = frame.as_motion_frame()
+            # Get the timestamp of the current frame to integrate by time
+            timestamp = motion_frame.get_timestamp()
+            if motion_frame and motion_frame.get_profile().stream_type() == rs.stream.accel:
+                # Accelerometer frame
+                # Get accelerometer measurements
+                accel_data = motion_frame.get_motion_data()
+                accel_data_array[index] = [accel_data.x, accel_data.y, accel_data.z, timestamp]
+                # accel_data_array[index] = get_difference_item(accel_data_array, accel_data, index)
+                # accel_data_array[index].append(timestamp)
+                # print(accel_data)
+            elif motion_frame and motion_frame.get_profile().stream_type() == rs.stream.gyro:
+                # Gyro frame
+                # Get gyro measurements
+                gyro_data = motion_frame.get_motion_data()
+                gyro_data_array[index] = [gyro_data.x, gyro_data.y, gyro_data.z, timestamp]
 
         depth_frame = decimate.process(depth_frame)
 
@@ -177,6 +228,31 @@ while True:
         verts = np.asanyarray(v).view(np.float32).reshape(-1, 3)  # xyz
         texcoords = np.asanyarray(t).view(np.float32).reshape(-1, 2)  # uv
 
+        if frame_count == 0:
+            # reject the first frame since it is has very dark texture
+            continue
+
+        index = frame_count % threshold
+        if index == 0:
+            print("Frame count:", frame_count)
+            # get the rotation angle by integrating the rotation velocity
+            rotation = get_trapz_integral_by_time(gyro_data_array)
+            rotation_matrix = create_rotation_matrix(rotation)
+
+            # multiply rotation matrix with translation matrix in homogeneous coordinates
+            transf_mat = create_transformation_matrix(rotation_matrix, [0,0,0])
+
+            # append to bigger lists
+            vertices_array.append(verts)
+            transf_matrices.append(transf_mat)
+            color_frames.append(color_frame)
+            tex_coords_array.append(texcoords)
+            mat_count = mat_count + 1
+
+        if mat_count == 7:
+            # continue with the processing part
+            break
+
     # Render
     now = time.time()
 
@@ -186,14 +262,14 @@ while True:
     # frustum(out, depth_intrinsics)
     # axes(out, view([0, 0, 0]), state.rotation, size=0.1, thickness=1)
 
-    if not state.scale or out.shape[:2] == (h, w):
-        pointcloud(out, verts, texcoords, color_source)
-    else:
-        tmp = np.zeros((h, w, 3), dtype=np.uint8)
-        pointcloud(tmp, verts, texcoords, color_source)
-        tmp = cv2.resize(
-            tmp, out.shape[:2][::-1], interpolation=cv2.INTER_NEAREST)
-        np.putmask(out, tmp > 0, tmp)
+    # if not state.scale or out.shape[:2] == (h, w):
+    #     pointcloud(out, verts, texcoords, color_source)
+    # else:
+    #     tmp = np.zeros((h, w, 3), dtype=np.uint8)
+    #     pointcloud(tmp, verts, texcoords, color_source)
+    #     tmp = cv2.resize(
+    #         tmp, out.shape[:2][::-1], interpolation=cv2.INTER_NEAREST)
+    #     np.putmask(out, tmp > 0, tmp)
 
     dt = time.time() - now
 
@@ -219,3 +295,21 @@ while True:
 
 # Stop streaming
 pipeline.stop()
+
+# print(transf_matrices)
+updated_transformation_matrices=[]
+# processing part
+for i in range(len(vertices_array)-1):
+    src = vertices_array[i]
+    dst = vertices_array[i+1]
+    T = icp(src,dst, transf_matrices[i])
+    updated_transformation_matrices.append(T)
+
+# append identity matrix to have the same number as vertices
+updated_transformation_matrices.append(np.eye(4,4))
+updated_pointclouds = apply_transformations(vertices_array, updated_transformation_matrices)
+
+for i in range(len(updated_pointclouds)):
+    texture = get_texture_from_pointcloud(updated_pointclouds[i], tex_coords_array[i], color_frames[i])
+    export_numpy_array_to_ply(updated_pointclouds[i], texture, f'updated_pointcloud_icp{i}.ply')
+
