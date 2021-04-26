@@ -76,9 +76,8 @@ pipeline = rs.pipeline()
 config = rs.config()
 
 # enabling depth stream
-config.enable_stream(rs.stream.depth, WIDTH, HEIGHT, rs.format.z16, REFRESH_RATE)
-# enabling color stream
-config.enable_stream(rs.stream.color, WIDTH, HEIGHT, rs.format.bgr8, REFRESH_RATE)
+config.enable_stream(rs.stream.depth, rs.format.z16, 30)
+config.enable_stream(rs.stream.color, rs.format.bgr8, 30)
 
 # Start streaming
 pipeline.start(config)
@@ -312,14 +311,15 @@ def pointcloud(out, verts, texcoords, color, painter=True):
 
 # initializing empty 3D array
 out = np.empty((h, w, 3), dtype=np.uint8)
-grid(out, (0.2, 0, 0.2), size=1, n=30)
+# grid(out, (0.2, 0, 0.2), size=1, n=30)
 
 vertices = []
+vertices_copy =[]
 tex_coords = []
 color_frames = []
 transf_matrices = []
 
-threshold = 10
+threshold = 20
 frame_count = -1
 accel_state = [0, -9.81, 0, 1]
 accel_data_array = [[0 for x in range(3)] for y in range(threshold)]
@@ -419,13 +419,13 @@ while True:
         if index == 0:
             print("Frame count:", frame_count)
             # remove noise from gyro data using the Kalman filter
-            noiseless_gyro = get_kalman_filtered_data(gyro_data_array, gyro_KF_x, gyro_KF_y, gyro_KF_z)
+            # noiseless_gyro = get_kalman_filtered_data(gyro_data_array, gyro_KF_x, gyro_KF_y, gyro_KF_z)
             # remove the gravity from the acceleration samples using noiseless gyro data
-            acceleration = remove_gravity_from_accel_data(accel_data_array, noiseless_gyro, accel_state)
+            acceleration = remove_gravity_from_accel_data(accel_data_array, gyro_data_array, accel_state)
             # remove noise from acceleration data using the Kalman filter
-            noiseless_acceleration = get_kalman_filtered_data(acceleration, accel_KF_x, accel_KF_y, accel_KF_z)
+            # noiseless_acceleration = get_kalman_filtered_data(acceleration, accel_KF_x, accel_KF_y, accel_KF_z)
             # noiseless_acceleration = acceleration
-            translation = get_double_trapz_integral_by_time(noiseless_acceleration)
+            translation = get_double_trapz_integral_by_time(acceleration)
 
             # update the accelerometer state with the last data
             accel_state = accel_data_array[9]
@@ -444,6 +444,7 @@ while True:
             # get the valid point indexes from the vertexes array
             valid_points_indexes = get_indexes_of_valid_points(verts)
             vertices.append(verts[valid_points_indexes])
+            vertices_copy.append(verts[valid_points_indexes])
             transf_matrices.append(transf_mat)
             color_frames.append(color_frame)
             # use the same indexes as the vertices
@@ -451,14 +452,16 @@ while True:
 
             mat_count = mat_count + 1
 
-        if mat_count == 7:
+        if mat_count == 8:
             updated_pointclouds = apply_transformations(vertices, transf_matrices)
             for index in range(len(updated_pointclouds)):
                 texture = get_texture_from_pointcloud(updated_pointclouds[index], tex_coords[index],
                                                       color_frames[index])
                 # save the transformed pointcloud
-                file_name = f'transformed_using_trapz{index}.ply'
+                file_name = f'./test/transformed_using_trapz{index}.ply'
                 export_numpy_array_to_ply(updated_pointclouds[index], texture, file_name=file_name)
+                # file_name = f'./test/original{index}.ply'
+                # export_numpy_array_to_ply(vertices_copy[index], texture, file_name=file_name)
             exit(1)
 
     # Render
