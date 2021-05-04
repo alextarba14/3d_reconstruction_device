@@ -8,8 +8,8 @@ from processing.icp import icp
 
 def test_removal_with_radius(file_name="test.ply"):
     points, colors = import_pointcloud_from_ply(file_name)
-    nb_neighbours = 35
-    radius = 0.05
+    nb_neighbours = 150
+    radius = 0.1
     indices = remove_points_with_less_neighbours(points, nb_neighbours, radius)
     colors[indices] = (0, 255, 0)
     export_numpy_array_to_ply(points[indices], colors[indices],
@@ -99,8 +99,8 @@ def test_open3d(file_name1="test.ply", file_name2="test2.ply"):
 
 if __name__ == "__main__":
     # test_removal_centroid("test_nou1.ply", cutoff=1)
-    # test_removal_with_radius("test_nou1.ply")
-    test_icp()
+    test_removal_with_radius("test_nou1.ply")
+    #test_icp()
     # test_open3d("test_nou1.ply", "test_nou2.ply")
 
 

@@ -28,5 +28,5 @@ def remove_points_with_less_neighbours(points, nb_neighbours, radius=0.03):
                     neighbours[nearest] = 1
 
     # keep only points that have no. of neighbours above the threshold
-    return  neighbours == 1
+    return neighbours == 1
 
