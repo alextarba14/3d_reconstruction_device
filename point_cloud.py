@@ -67,7 +67,7 @@ state = AppState()
 
 WIDTH = 1280
 HEIGHT = 720
-REFRESH_RATE = 15
+REFRESH_RATE = 30
 ACCEL_RATE = 250
 GYRO_RATE = 200
 
@@ -76,9 +76,9 @@ pipeline = rs.pipeline()
 config = rs.config()
 
 # enabling depth stream
-config.enable_stream(rs.stream.depth, WIDTH, HEIGHT, rs.format.z16, REFRESH_RATE)
+config.enable_stream(rs.stream.depth, rs.format.z16, REFRESH_RATE)
 # enabling color stream
-config.enable_stream(rs.stream.color, WIDTH, HEIGHT, rs.format.bgr8, REFRESH_RATE)
+config.enable_stream(rs.stream.color, rs.format.bgr8, REFRESH_RATE)
 
 # Start streaming
 pipeline.start(config)
@@ -102,7 +102,7 @@ w, h = depth_intrinsics.width, depth_intrinsics.height
 # Processing blocks
 pc = rs.pointcloud()
 decimate = rs.decimation_filter()
-decimate.set_option(rs.option.filter_magnitude, 2 ** state.decimate)
+decimate.set_option(rs.option.filter_magnitude, 3)
 colorizer = rs.colorizer()
 
 # used to prevent false camera rotation
@@ -412,20 +412,20 @@ while True:
         texcoords = np.asanyarray(t).view(np.float32).reshape(-1, 2)  # uv
 
         if frame_count == 0:
-            # reject the first frame since it is has very dark texture
+            # reject the first frame since it has very dark texture
             continue
 
         index = frame_count % threshold
         if index == 0:
             print("Frame count:", frame_count)
             # remove noise from gyro data using the Kalman filter
-            noiseless_gyro = get_kalman_filtered_data(gyro_data_array, gyro_KF_x, gyro_KF_y, gyro_KF_z)
+            # noiseless_gyro = get_kalman_filtered_data(gyro_data_array, gyro_KF_x, gyro_KF_y, gyro_KF_z)
             # remove the gravity from the acceleration samples using noiseless gyro data
-            acceleration = remove_gravity_from_accel_data(accel_data_array, noiseless_gyro, accel_state)
+            # acceleration = remove_gravity_from_accel_data(accel_data_array, gyro_data_array, accel_state)
             # remove noise from acceleration data using the Kalman filter
-            noiseless_acceleration = get_kalman_filtered_data(acceleration, accel_KF_x, accel_KF_y, accel_KF_z)
+            # noiseless_acceleration = get_kalman_filtered_data(acceleration, accel_KF_x, accel_KF_y, accel_KF_z)
             # noiseless_acceleration = acceleration
-            translation = get_double_trapz_integral_by_time(noiseless_acceleration)
+            # translation = get_double_trapz_integral_by_time(acceleration)
 
             # update the accelerometer state with the last data
             accel_state = accel_data_array[9]
@@ -435,7 +435,7 @@ while True:
             rotation_matrix = create_rotation_matrix(rotation)
 
             # multiply rotation matrix with translation matrix in homogeneous coordinates
-            transf_mat = create_transformation_matrix(rotation_matrix, translation)
+            transf_mat = create_transformation_matrix(rotation_matrix, [0, 0, 0])
             # points.export_to_ply(f'./out{mat_count}.ply', mapped_frame)
             file_name = f'original_out{mat_count}.ply'
             # default_export_points(points, file_name)
@@ -457,9 +457,10 @@ while True:
                 texture = get_texture_from_pointcloud(updated_pointclouds[index], tex_coords[index],
                                                       color_frames[index])
                 # save the transformed pointcloud
-                file_name = f'transformed_using_trapz{index}.ply'
+                file_name = f'point_cloud{index}.ply'
                 export_numpy_array_to_ply(updated_pointclouds[index], texture, file_name=file_name)
-            exit(1)
+            # close process
+            break
 
     # Render
     now = time.time()
