@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 
+
 def best_fit_transform(A, B):
     """
     Calculates the least-squares best-fit transform that maps corresponding points A to B in m spatial dimensions
@@ -62,7 +63,7 @@ def nearest_neighbor(src, dst):
     # ball_tree -> best_fit: 0.0188800121296459
     # kd_tree -> best_fit: 0.018880012129646167
     # 0.01887971474324085
-    neigh = NearestNeighbors(n_neighbors=1, radius=0.01, leaf_size=40, n_jobs=-1, p=2)
+    neigh = NearestNeighbors(n_neighbors=1, n_jobs=-1, p=2)
     neigh.fit(dst)
     distances, indices = neigh.kneighbors(src, return_distance=True)
     return distances.ravel(), indices.ravel()
@@ -92,6 +93,12 @@ def icp(A, B, initial_transformation=None, max_iterations=25, tolerance=0.001):
     src = np.ones((m + 1, A.shape[0]))
     dst = np.ones((m + 1, B.shape[0]))
     src[:m, :] = np.copy(A.T)
+    #
+    # remove points that have 0 depth from dataset
+    invalid_points = (A[:, 2] == 0)
+    src = src.T
+    src[invalid_points] = (0, 0, 0, 0)
+    src = src.T
     dst[:m, :] = np.copy(B.T)
 
     # apply the initial transformation estimation
@@ -135,4 +142,4 @@ def icp(A, B, initial_transformation=None, max_iterations=25, tolerance=0.001):
     # best_src = best_src.T
     # best_src = np.delete(best_src, 3, axis=1)
 
-    return best_T
+    return best_T, best_fit
