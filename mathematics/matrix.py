@@ -115,40 +115,21 @@ def create_rotation_matrix(gyro_data):
     return mat
 
 
-def create_transformation_matrix(rotation_matrix, accel_data):
-    transf_mat = np.empty((4, 4), dtype=np.float32)
+def create_transformation_matrix(rotation_matrix, translation):
+    # convert to numpy array
+    rotation = np.array(rotation_matrix)
+    translation = np.array(translation)
+
+    # initialize transformation matrix as Identity
+    transf_mat = np.eye(4, 4, dtype=np.float32)
+
     # copy rotation matrix in transformation matrix
-    for i in range(3):
-        for j in range(3):
-            transf_mat[i][j] = rotation_matrix[i][j]
+    transf_mat[:3, :3] = rotation
 
-    # multiplying rotation matrix with translation matrix
-    # Reference: http://www.fastgraph.com/makegames/3drotation/
+    # copy the translation on the last column
+    transf_mat[:3, 3] = translation
 
-    # accel_data = [x,y,z]
-    # transf_mat[0][3] = R11*x + R12*y +R13*z
-    transf_mat[0][3] = transf_mat[0][0] * accel_data[0] + \
-                       transf_mat[0][1] * accel_data[1] + \
-                       transf_mat[0][2] * accel_data[2]
-
-    # transf_mat[1][3] = R21*x + R22*y +R23*z
-    transf_mat[1][3] = transf_mat[1][0] * accel_data[0] + \
-                       transf_mat[1][1] * accel_data[1] + \
-                       transf_mat[1][2] * accel_data[2]
-
-    # transf_mat[2][3] = R31*x + R32*y +R33*z
-    transf_mat[2][3] = transf_mat[2][0] * accel_data[0] + \
-                       transf_mat[2][1] * accel_data[1] + \
-                       transf_mat[2][2] * accel_data[2]
-
-    # put zeros on the 4th line
-    transf_mat[3][0] = 0
-    transf_mat[3][1] = 0
-    transf_mat[3][2] = 0
-
-    # put 1 in the bottom right corner
-    transf_mat[3][3] = 1
-
+    print(transf_mat)
     return transf_mat
 
 
@@ -162,12 +143,11 @@ def get_indexes_of_valid_points(array):
     Returns:
         A tuple containing valid point indexes.
     """
-    # transpose numpy array in order to put columns as lines
-    # get the z column - depth
-    depth = array.transpose()[2]
 
     # keep only elements that have depth greater than 0
-    return np.where(depth > 0)
+    valid_points = array[:, 2] != 0
+    close_points = array[:, 2] <= 3
+    return valid_points & close_points
 
 
 def remove_gravity_from_accel_data(accel_data_array, gyro_data_array, accel_state):
