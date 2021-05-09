@@ -101,7 +101,7 @@ w, h = depth_intrinsics.width, depth_intrinsics.height
 # Processing blocks
 pc = rs.pointcloud()
 decimate = rs.decimation_filter()
-decimate.set_option(rs.option.filter_magnitude, 2 ** state.decimate)
+decimate.set_option(rs.option.filter_magnitude, 3)
 colorizer = rs.colorizer()
 
 # used to prevent false camera rotation
@@ -319,7 +319,7 @@ tex_coords = []
 color_frames = []
 transf_matrices = []
 
-threshold = 20
+threshold = 10
 frame_count = -1
 accel_state = [0, -9.81, 0, 1]
 accel_data_array = [[0 for x in range(3)] for y in range(threshold)]
@@ -332,7 +332,7 @@ gyro_KF_x = KalmanFilter()
 gyro_KF_y = KalmanFilter()
 gyro_KF_z = KalmanFilter()
 index = 0
-mat_count = -1
+mat_count = 0
 while True:
     # Grab camera data
     if not state.paused:
@@ -418,14 +418,11 @@ while True:
         index = frame_count % threshold
         if index == 0:
             print("Frame count:", frame_count)
-            # remove noise from gyro data using the Kalman filter
-            # noiseless_gyro = get_kalman_filtered_data(gyro_data_array, gyro_KF_x, gyro_KF_y, gyro_KF_z)
-            # remove the gravity from the acceleration samples using noiseless gyro data
+            # remove the gravity from the acceleration samples using gyro data
             acceleration = remove_gravity_from_accel_data(accel_data_array, gyro_data_array, accel_state)
-            # remove noise from acceleration data using the Kalman filter
-            # noiseless_acceleration = get_kalman_filtered_data(acceleration, accel_KF_x, accel_KF_y, accel_KF_z)
-            # noiseless_acceleration = acceleration
-            translation = get_double_trapz_integral_by_time(acceleration)
+
+            # compute the translation as the double interval by time of the acceleration
+            translation = get_double_trapz_integral_by_time(accel_data_array)
 
             # update the accelerometer state with the last data
             accel_state = accel_data_array[9]
@@ -452,7 +449,7 @@ while True:
 
             mat_count = mat_count + 1
 
-        if mat_count == 8:
+        if mat_count == 10:
             updated_pointclouds = apply_transformations(vertices, transf_matrices)
             for index in range(len(updated_pointclouds)):
                 texture = get_texture_from_pointcloud(updated_pointclouds[index], tex_coords[index],
