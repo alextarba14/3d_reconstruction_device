@@ -96,13 +96,25 @@ def test_open3d(file_name1="test.ply", file_name2="test2.ply"):
     result = np.delete(result, 3, axis=1)
     export_numpy_array_to_ply(result, colors_a, "open3d_transf.ply", rotate_columns=False)
 
+def remove_empty_points_from_point_clouds(dir_path: str):
+    import os
+    os.chdir(dir_path)
+
+    for filename in os.listdir(os.getcwd()):
+        with open(os.path.join(os.getcwd(), filename), 'r') as f:
+            points_a, colors_a = import_pointcloud_from_ply(f.name)
+            indices = points_a[:, 2] != 0
+            points_a = points_a[indices]
+            colors_a = colors_a[indices]
+            export_numpy_array_to_ply(points_a, colors_a, f.name, rotate_columns=False)
+            print(f.name)
+
 
 if __name__ == "__main__":
     # test_removal_centroid("test_nou1.ply", cutoff=1)
     # test_removal_with_radius("test_nou1.ply")
     test_icp()
     # test_open3d("test_nou1.ply", "test_nou2.ply")
-
 
 
 
