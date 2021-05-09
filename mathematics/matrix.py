@@ -129,7 +129,6 @@ def create_transformation_matrix(rotation_matrix, translation):
     # copy the translation on the last column
     transf_mat[:3, 3] = translation
 
-    print(transf_mat)
     return transf_mat
 
 

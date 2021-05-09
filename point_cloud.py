@@ -67,7 +67,7 @@ state = AppState()
 
 WIDTH = 1280
 HEIGHT = 720
-REFRESH_RATE = 15
+REFRESH_RATE = 30
 ACCEL_RATE = 250
 GYRO_RATE = 200
 
@@ -76,8 +76,9 @@ pipeline = rs.pipeline()
 config = rs.config()
 
 # enabling depth stream
-config.enable_stream(rs.stream.depth, rs.format.z16, 30)
-config.enable_stream(rs.stream.color, rs.format.bgr8, 30)
+config.enable_stream(rs.stream.depth, rs.format.z16, REFRESH_RATE)
+# enabling color stream
+config.enable_stream(rs.stream.color, rs.format.bgr8, REFRESH_RATE)
 
 # Start streaming
 pipeline.start(config)
@@ -412,7 +413,7 @@ while True:
         texcoords = np.asanyarray(t).view(np.float32).reshape(-1, 2)  # uv
 
         if frame_count == 0:
-            # reject the first frame since it is has very dark texture
+            # reject the first frame since it has very dark texture
             continue
 
         index = frame_count % threshold
@@ -459,7 +460,8 @@ while True:
                 export_numpy_array_to_ply(updated_pointclouds[index], texture, file_name=file_name)
                 # file_name = f'./test/original{index}.ply'
                 # export_numpy_array_to_ply(vertices_copy[index], texture, file_name=file_name)
-            exit(1)
+            # close process
+            break
 
     # Render
     now = time.time()
