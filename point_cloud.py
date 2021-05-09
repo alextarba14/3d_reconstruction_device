@@ -16,11 +16,10 @@ import cv2
 import numpy as np
 import pyrealsense2 as rs
 import time
+
+from icp_point_to_plane.icp_point_to_plane import icp
 from input_output.ply import default_export_points, export_numpy_array_to_ply
-from mathematics.matrix import get_trapz_integral_by_time, create_rotation_matrix, create_transformation_matrix
-from mathematics.transformations import apply_transformations
-from processing.icp import icp
-from processing.process import get_texture_from_pointcloud
+from processing.process import get_texture_for_pointcloud
 
 
 class AppState:
@@ -61,18 +60,6 @@ config = rs.config()
 config.enable_stream(rs.stream.depth, rs.format.z16, 30)
 config.enable_stream(rs.stream.color, rs.format.bgr8, 30)
 
-# Create a different pipeline for IMU
-imu_pipeline = rs.pipeline()
-imu_config = rs.config()
-# Configuring streams at different rates
-# Accelerometer available FPS: {63, 250}Hz
-imu_config.enable_stream(rs.stream.accel, rs.format.motion_xyz32f, 250)  # acceleration
-# Gyroscope available FPS: {200,400}Hz
-imu_config.enable_stream(rs.stream.gyro, rs.format.motion_xyz32f, 200)  # gyroscope
-
-# Start streaming IMU
-imu_profile = imu_pipeline.start(imu_config)
-
 # Start streaming color & depth
 pipeline.start(config)
 
@@ -91,85 +78,18 @@ colorizer = rs.colorizer()
 cv2.namedWindow(state.WIN_NAME, cv2.WINDOW_AUTOSIZE)
 cv2.resizeWindow(state.WIN_NAME, w, h)
 
-
-def project(v):
-    """project 3d vector array to 2d"""
-    h, w = out.shape[:2]
-    view_aspect = float(h)/w
-
-    # ignore divide by zero for invalid depth
-    with np.errstate(divide='ignore', invalid='ignore'):
-        proj = v[:, :-1] / v[:, -1, np.newaxis] * \
-            (w*view_aspect, h) + (w/2.0, h/2.0)
-
-    # near clipping
-    znear = 0.03
-    proj[v[:, 2] < znear] = np.nan
-    return proj
-
-
-def view(v):
-    """apply view transformation on vector array"""
-    return np.dot(v - state.pivot, state.rotation) + state.pivot - state.translation
-
-
-def pointcloud(out, verts, texcoords, color, painter=True):
-    """draw point cloud with optional painter's algorithm"""
-    if painter:
-        # Painter's algo, sort points from back to front
-
-        # get reverse sorted indices by z (in view-space)
-        # https://gist.github.com/stevenvo/e3dad127598842459b68
-        v = view(verts)
-        s = v[:, 2].argsort()[::-1]
-        proj = project(v[s])
-    else:
-        proj = project(view(verts))
-
-    if state.scale:
-        proj *= 0.5**state.decimate
-
-    h, w = out.shape[:2]
-
-    # proj now contains 2d image coordinates
-    j, i = proj.astype(np.uint32).T
-
-    # create a mask to ignore out-of-bound indices
-    im = (i >= 0) & (i < h)
-    jm = (j >= 0) & (j < w)
-    m = im & jm
-
-    cw, ch = color.shape[:2][::-1]
-    if painter:
-        # sort texcoord with same indices as above
-        # texcoords are [0..1] and relative to top-left pixel corner,
-        # multiply by size and add 0.5 to center
-        v, u = (texcoords[s] * (cw, ch) + 0.5).astype(np.uint32).T
-    else:
-        v, u = (texcoords * (cw, ch) + 0.5).astype(np.uint32).T
-    # clip texcoords to image
-    np.clip(u, 0, ch-1, out=u)
-    np.clip(v, 0, cw-1, out=v)
-
-    # perform uv-mapping
-    out[i[m], j[m]] = color[u[m], v[m]]
-
-
 out = np.empty((h, w, 3), dtype=np.uint8)
 
 vertices_array = []
 tex_coords_array = []
-color_frames = []
+texture_data_array = []
 transf_matrices = []
 
-threshold = 30
+threshold = 10
 frame_count = -1
-accel_state = [0, -9.81, 0, 1]
-accel_data_array = [[0 for x in range(3)] for y in range(threshold)]
-gyro_data_array = [[0 for x in range(3)] for y in range(threshold)]
 
 index = 0
-mat_count = -1
+mat_count = 0
 while True:
     # Grab camera data
     if not state.paused:
@@ -180,27 +100,6 @@ while True:
         color_frame = frames.get_color_frame()
 
         frame_count = frame_count + 1
-
-        # Wait for a coherent pair of frames: gyro and accel
-        imu_frames = imu_pipeline.wait_for_frames()
-
-        for frame in imu_frames:
-            motion_frame = frame.as_motion_frame()
-            # Get the timestamp of the current frame to integrate by time
-            timestamp = motion_frame.get_timestamp()
-            if motion_frame and motion_frame.get_profile().stream_type() == rs.stream.accel:
-                # Accelerometer frame
-                # Get accelerometer measurements
-                accel_data = motion_frame.get_motion_data()
-                accel_data_array[index] = [accel_data.x, accel_data.y, accel_data.z, timestamp]
-                # accel_data_array[index] = get_difference_item(accel_data_array, accel_data, index)
-                # accel_data_array[index].append(timestamp)
-                # print(accel_data)
-            elif motion_frame and motion_frame.get_profile().stream_type() == rs.stream.gyro:
-                # Gyro frame
-                # Get gyro measurements
-                gyro_data = motion_frame.get_motion_data()
-                gyro_data_array[index] = [gyro_data.x, gyro_data.y, gyro_data.z, timestamp]
 
         depth_frame = decimate.process(depth_frame)
 
@@ -229,27 +128,35 @@ while True:
         texcoords = np.asanyarray(t).view(np.float32).reshape(-1, 2)  # uv
 
         if frame_count == 0:
-            # reject the first frame since it is has very dark texture
+            # initialize the main point cloud
+            color_w, color_h = color_frame.get_width(), color_frame.get_height()
+            bytes_per_pixel = color_frame.get_bytes_per_pixel()
+            stride_in_bytes = color_frame.get_stride_in_bytes()
             continue
 
         index = frame_count % threshold
         if index == 0:
             print("Frame count:", frame_count)
             # get the rotation angle by integrating the rotation velocity
-            rotation = get_trapz_integral_by_time(gyro_data_array)
-            rotation_matrix = create_rotation_matrix(rotation)
+            # rotation = get_trapz_integral_by_time(gyro_data_array)
+            # rotation_matrix = create_rotation_matrix(rotation)
 
             # multiply rotation matrix with translation matrix in homogeneous coordinates
-            transf_mat = create_transformation_matrix(rotation_matrix, [0,0,0])
+            # transf_mat = create_transformation_matrix(rotation_matrix, [0,0,0])
 
-            # append to bigger lists
+            # keep only valid points in point cloud
+            valid_points = verts[:, 2] != 0
+            verts = verts[valid_points]
+
+            texture_data = np.asanyarray(color_frame.get_data()).view(np.uint8).reshape(-1, 1)
             vertices_array.append(verts)
-            transf_matrices.append(transf_mat)
-            color_frames.append(color_frame)
-            tex_coords_array.append(texcoords)
+            # transf_matrices.append(transf_mat)
+            texture_data_array.append(texture_data)
+            tex_coords_array.append(texcoords[valid_points])
+
             mat_count = mat_count + 1
 
-        if mat_count == 7:
+        if mat_count == 10:
             # continue with the processing part
             break
 
@@ -275,7 +182,7 @@ while True:
 
     cv2.setWindowTitle(
         state.WIN_NAME, "RealSense (%dx%d) %dFPS (%.2fms) %s" %
-        (w, h, 1.0/dt, dt*1000, "PAUSED" if state.paused else ""))
+                        (w, h, 1.0 / dt, dt * 1000, "PAUSED" if state.paused else ""))
 
     cv2.imshow(state.WIN_NAME, out)
     key = cv2.waitKey(1)
@@ -287,7 +194,7 @@ while True:
     if key == ord("e"):
         # points.export_to_ply('./out.ply', mapped_frame)
         # default_export_points(points)
-        texture = get_texture_from_pointcloud(verts, texcoords, color_frame)
+        texture = get_texture_for_pointcloud(verts, texcoords, color_frame)
         export_numpy_array_to_ply(verts, texture, f'{time.time()}.ply')
 
     if key in (27, ord("q")) or cv2.getWindowProperty(state.WIN_NAME, cv2.WND_PROP_AUTOSIZE) < 0:
@@ -296,20 +203,62 @@ while True:
 # Stop streaming
 pipeline.stop()
 
-# print(transf_matrices)
-updated_transformation_matrices=[]
-# processing part
-for i in range(len(vertices_array)-1):
-    src = vertices_array[i]
-    dst = vertices_array[i+1]
-    T = icp(src,dst, transf_matrices[i])
-    updated_transformation_matrices.append(T)
+colors = []
+X_src = vertices_array[0].copy()
+main_color = get_texture_for_pointcloud(X_src, tex_coords_array[0], texture_data_array[0], color_w, color_h,
+                                        bytes_per_pixel, stride_in_bytes)
+colors.append(main_color)
+transf_matrices.append(np.eye(4, 4))
 
-# append identity matrix to have the same number as vertices
-updated_transformation_matrices.append(np.eye(4,4))
-updated_pointclouds = apply_transformations(vertices_array, updated_transformation_matrices)
+for i in range(1, len(vertices_array)):
+    X_dst = vertices_array[i].copy()
+    # get transformation matrix that match destination over source
+    Tr = icp(X_src, X_dst)
+    transf_matrices.append(Tr)
+    # get color for current point cloud
+    current_color = get_texture_for_pointcloud(X_dst, tex_coords_array[i], texture_data_array[i], color_w, color_h,
+                                               bytes_per_pixel, stride_in_bytes)
+    # append color to colors array
+    colors.append(current_color)
 
-for i in range(len(updated_pointclouds)):
-    texture = get_texture_from_pointcloud(updated_pointclouds[i], tex_coords_array[i], color_frames[i])
-    export_numpy_array_to_ply(updated_pointclouds[i], texture, f'updated_pointcloud_icp{i}.ply')
+    # update the current source
+    X_src = vertices_array[i].copy()
 
+main_pc = vertices_array[0]
+main_color = colors[0]
+index = 1
+length = len(vertices_array)
+# apply transformation to align each point cloud over the first point cloud
+while index < length:
+    current_pc = vertices_array[index]
+
+    # append a column of ones to transform the current point cloud
+    # in homogeneous coordinates to do matrix multiplication
+    ones = np.ones((len(current_pc), 1))
+    current_pc = np.append(current_pc, ones, axis=1)
+
+    # transpose current point cloud to allow matrix multiplication
+    current_pc = current_pc.T
+
+    j = 1
+    while j <= index:
+        # apply all transformation matrices
+        current_transf = transf_matrices[j]
+        current_pc = current_transf @ current_pc
+        j = j + 1
+
+    # transpose current point cloud back to have info in xyz coordinates
+    current_pc = current_pc.T
+    current_pc = np.delete(current_pc, 3, axis=1)
+
+    # append current point cloud to the main point cloud
+    main_pc = np.vstack((main_pc, current_pc))
+
+    # append the color as well
+    current_color = colors[index]
+    main_color = np.vstack((main_color, current_color))
+
+    # move to the next point cloud
+    index = index + 1
+
+export_numpy_array_to_ply(main_pc, main_color, "result.ply")
