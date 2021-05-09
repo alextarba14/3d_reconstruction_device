@@ -3,15 +3,10 @@ import pyrealsense2 as rs
 import numpy as np
 
 
-def get_texture_from_pointcloud(vertices, tex_coords, color_frame: rs.frame):
+def get_texture_for_pointcloud(vertices, tex_coords, texture_data, w, h, bytes_per_pixel, stride_in_bytes):
     # Reference: https://github.com/Resays/xyz_rgb_realsense/blob/ede2bf9cc81d67ff0a7b616a5c70ff529e43bfe3/xyz_rgb_realsense.cpp
     start_time = time.time()
     # get information from color frame
-    texture_data = np.asanyarray(color_frame.get_data()).view(np.uint8).reshape(-1, 1)
-    w, h = color_frame.get_width(), color_frame.get_height()
-    bytes_per_pixel = color_frame.get_bytes_per_pixel()
-    stride_in_bytes = color_frame.get_stride_in_bytes()
-
     texture = []
     length = len(vertices)
     for i in range(length):
