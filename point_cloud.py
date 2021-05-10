@@ -19,6 +19,7 @@ import time
 
 from icp_point_to_plane.icp_point_to_plane import icp
 from input_output.ply import default_export_points, export_numpy_array_to_ply
+from mathematics.matrix import get_indexes_of_valid_points
 from processing.process import get_texture_for_pointcloud
 
 
@@ -128,7 +129,7 @@ while True:
         texcoords = np.asanyarray(t).view(np.float32).reshape(-1, 2)  # uv
 
         if frame_count == 0:
-            # initialize the main point cloud
+            # keep information to get color for each frame only once since they are all the same
             color_w, color_h = color_frame.get_width(), color_frame.get_height()
             bytes_per_pixel = color_frame.get_bytes_per_pixel()
             stride_in_bytes = color_frame.get_stride_in_bytes()
@@ -145,7 +146,7 @@ while True:
             # transf_mat = create_transformation_matrix(rotation_matrix, [0,0,0])
 
             # keep only valid points in point cloud
-            valid_points = verts[:, 2] != 0
+            valid_points = get_indexes_of_valid_points(verts)
             verts = verts[valid_points]
 
             texture_data = np.asanyarray(color_frame.get_data()).view(np.uint8).reshape(-1, 1)
