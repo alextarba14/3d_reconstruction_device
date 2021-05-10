@@ -88,4 +88,5 @@ def down_sample_point_cloud(point_cloud):
         for index in inds[valid]:
             keep_indices[index] = True
 
+    print("Valid indices acquired.")
     return keep_indices

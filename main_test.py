@@ -1,4 +1,4 @@
-from input_output.ply import import_pointcloud_from_ply, export_numpy_array_to_ply
+from input_output.ply import import_point_cloud_from_ply, export_numpy_array_to_ply
 from processing.process import remove_points_far_away_from_centroid, remove_points_with_less_neighbours, \
     down_sample_point_cloud
 import numpy as np
@@ -8,7 +8,7 @@ from processing.icp import icp
 
 
 def test_removal_with_radius(file_name="test.ply"):
-    points, colors = import_pointcloud_from_ply(file_name)
+    points, colors = import_point_cloud_from_ply(file_name)
     nb_neighbours = 35
     radius = 0.05
     indices = remove_points_with_less_neighbours(points, nb_neighbours, radius)
@@ -25,7 +25,7 @@ def test_removal_with_radius(file_name="test.ply"):
 
 
 def test_removal_centroid(file_name="test.ply", cutoff=1.0):
-    points, colors = import_pointcloud_from_ply(file_name)
+    points, colors = import_point_cloud_from_ply(file_name)
     indices = remove_points_far_away_from_centroid(points, cutoff)
     colors[indices] = (255, 0, 0)
     export_numpy_array_to_ply(points[indices], colors[indices], f'removed_with_cutoff_{cutoff}.ply',
@@ -40,20 +40,20 @@ def test_removal_centroid(file_name="test.ply", cutoff=1.0):
 
 def test_icp(file_name1="test_nou1.ply", file_name2="test_nou2.ply", nb_neighbours=35, radius=0.05):
     # remove outliers from point cloud A
-    points_a, colors_a = import_pointcloud_from_ply(file_name1)
+    points_a, colors_a = import_point_cloud_from_ply(file_name1)
     # indices = remove_points_with_less_neighbours(points_a, nb_neighbours, radius)
     # indices = np.invert(indices)
     # points_a[indices] = (0, 0, 0)
 
     # remove outliers from point cloud B
-    points_b, colors_b = import_pointcloud_from_ply(file_name2)
+    points_b, colors_b = import_point_cloud_from_ply(file_name2)
     # indices = remove_points_with_less_neighbours(points_b, nb_neighbours, radius)
     # indices = np.invert(indices)
     # points_b[indices] = (0, 0, 0)
 
     invalid_indices = points_a[:, 2] == 0
 
-    initial_transformation = np.eye(4,4)
+    initial_transformation = np.eye(4, 4)
     # perform icp on point clouds without outliers
     T = icp(points_a, points_b, initial_transformation)
     print("Transformation:\n", T)
@@ -73,7 +73,7 @@ def test_icp(file_name1="test_nou1.ply", file_name2="test_nou2.ply", nb_neighbou
 
 
 def test_open3d(file_name1="test.ply", file_name2="test2.ply"):
-    points_a, colors_a = import_pointcloud_from_ply(file_name1)
+    points_a, colors_a = import_point_cloud_from_ply(file_name1)
     source = o3d.io.read_point_cloud(file_name1)
     target = o3d.io.read_point_cloud(file_name2)
 
@@ -97,13 +97,14 @@ def test_open3d(file_name1="test.ply", file_name2="test2.ply"):
     result = np.delete(result, 3, axis=1)
     export_numpy_array_to_ply(result, colors_a, "open3d_transf.ply", rotate_columns=False)
 
+
 def remove_empty_points_from_point_clouds(dir_path: str):
     import os
     os.chdir(dir_path)
 
     for filename in os.listdir(os.getcwd()):
         with open(os.path.join(os.getcwd(), filename), 'r') as f:
-            points_a, colors_a = import_pointcloud_from_ply(f.name)
+            points_a, colors_a = import_point_cloud_from_ply(f.name)
             indices = points_a[:, 2] != 0
             points_a = points_a[indices]
             colors_a = colors_a[indices]
@@ -117,14 +118,12 @@ if __name__ == "__main__":
     # test_icp()
     # test_open3d("test_nou1.ply", "test_nou2.ply")
 
-    points_a, colors_a = import_pointcloud_from_ply("result.ply")
+    points_a, colors_a = import_point_cloud_from_ply("result.ply")
     keep_indices = down_sample_point_cloud(points_a)
 
-    export_numpy_array_to_ply(points_a[keep_indices], colors_a[keep_indices], "updated_result.ply", rotate_columns=False)
+    export_numpy_array_to_ply(points_a[keep_indices], colors_a[keep_indices], "updated_result.ply",
+                              rotate_columns=False)
 
     remove_indices = np.invert(keep_indices)
     export_numpy_array_to_ply(points_a[remove_indices], colors_a[remove_indices], "removed_from_result.ply",
                               rotate_columns=False)
-
-
-

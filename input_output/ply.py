@@ -26,6 +26,7 @@ property uchar red
 end_header""".format(length=length)
 
     np.savetxt(file_name, data, fmt="%.6g", header=header, delimiter=" ", comments="")
+    print(f'{file_name} exported successfully.')
 
 
 def default_export_points(points, file_name="default.ply"):
@@ -43,7 +44,7 @@ def default_export_points(points, file_name="default.ply"):
     print(file_name + " saved.")
 
 
-def import_pointcloud_from_ply(file_name="test.ply"):
+def import_point_cloud_from_ply(file_name="test.ply"):
     """
     Imports a point cloud from a .ply file that contains xyz coordinates and color for each point.
     The coordinates are in the first 3 columns and the colors in the last 3 columns of data.
@@ -60,5 +61,7 @@ def import_pointcloud_from_ply(file_name="test.ply"):
 
     # get the color associated with each point as values in [0,255]
     colors = result[:, 3:].astype(np.uint8)
+
+    print(f'{file_name} imported successfully.')
     return points, colors
 
