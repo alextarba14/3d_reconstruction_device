@@ -64,3 +64,28 @@ def remove_points_with_less_neighbours(points, nb_neighbours, radius=0.03):
 
     # keep only points that have no. of neighbours above the threshold
     return neighbours == 1
+
+
+def down_sample_point_cloud(point_cloud):
+    """
+    Down sample point cloud to remove points that are to close to each other
+    and do not carry additional information.
+    Returns:
+        Indices of points that need to be kept in point cloud.
+    """
+    # create a KDTree structure to find nearest neighbors
+    kd_tree = spatial.cKDTree(point_cloud)
+    # get the distances and indices between each point and 5 nearest neighbors
+    dist, indices = kd_tree.query(point_cloud, k=5, p=2, n_jobs=-1)
+
+    # create an array with boolean values to keep or drop indices
+    keep_indices = np.full(len(point_cloud), False, dtype=bool)
+    for i in range(len(point_cloud)):
+        distances = dist[i]
+        inds = indices[i]
+        # keep only indices that are above median value in distances
+        valid = dist[i, :] > np.median(distances)
+        for index in inds[valid]:
+            keep_indices[index] = True
+
+    return keep_indices
