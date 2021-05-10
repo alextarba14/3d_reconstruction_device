@@ -1,34 +1,5 @@
 import numpy as np
-import scipy.spatial as spatial
 import time
-
-def remove_points_far_away_from_centroid(points, cutoff=1.0):
-    # find the points` centroid
-    centroid = np.mean(points, axis=0)
-    distances = np.empty(len(points))
-    for i in range(len(points)):
-        # exclude points that have zero depth
-        if points[i][2] != 0:
-            dist = np.linalg.norm(centroid - points[i])
-            distances[i] = dist
-
-    # keep only points that are under the cutoff value
-    return distances < cutoff
-
-
-def remove_points_with_less_neighbours(points, nb_neighbours, radius=0.03):
-    tree = spatial.cKDTree(points)
-    neighbours = np.zeros(len(points))
-    for i in range(len(points)):
-        # exclude points that have zero depth
-        if points[i][2] != 0:
-            if neighbours[i] == 0:
-                nearest = tree.query_ball_point(points[i], radius)
-                if len(nearest) > nb_neighbours:
-                    neighbours[nearest] = 1
-
-    # keep only points that have no. of neighbours above the threshold
-    return  neighbours == 1
 
 
 def apply_transformations(pointclouds, transf_matrices):
@@ -97,4 +68,3 @@ def apply_next_transformations_to_current_pointcloud(current_pointcloud, index, 
     # removing the last column since it was added to perform dot product between vector[1x(3+1)] and transform matrix[4x4]
     current_pointcloud = np.delete(current_pointcloud, 3, axis=1)
     return current_pointcloud
-

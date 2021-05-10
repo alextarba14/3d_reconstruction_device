@@ -1,6 +1,7 @@
 import time
 import pyrealsense2 as rs
 import numpy as np
+import scipy.spatial as spatial
 
 
 def get_texture_for_pointcloud(vertices, tex_coords, texture_data, w, h, bytes_per_pixel, stride_in_bytes):
@@ -24,3 +25,42 @@ def get_texture_color(tex_coords: rs.texture_coordinate, texture_data, w, h, byt
     y = min(max(int(tex_coords[1] * h + 0.5), 0), h - 1)
     idx = x * bytes_per_pixel + y * stride_in_bytes
     return [texture_data[idx][0], texture_data[idx + 1][0], texture_data[idx + 2][0]]
+
+
+def remove_points_far_away_from_centroid(points, cutoff=1.0):
+    """
+    Removes points that are above the cutoff specified distance
+    regarding the centroid of the point cloud.
+    """
+    # find the points` centroid
+    centroid = np.mean(points, axis=0)
+    distances = np.empty(len(points))
+    for i in range(len(points)):
+        # exclude points that have zero depth
+        if points[i][2] != 0:
+            dist = np.linalg.norm(centroid - points[i])
+            distances[i] = dist
+
+    # keep only points that are under the cutoff value
+    return distances < cutoff
+
+
+def remove_points_with_less_neighbours(points, nb_neighbours, radius=0.03):
+    """
+    It searches neighbors for each point in a given radius.
+    If the number of neighbors is greater than the number specified,
+    then the point and his neighbours will be kept, otherwise it will be dropped.
+    """
+    tree = spatial.cKDTree(points)
+    # keep track of visited neighbors
+    neighbours = np.zeros(len(points))
+    for i in range(len(points)):
+        # exclude points that have zero depth
+        if points[i][2] != 0:
+            if neighbours[i] == 0:
+                nearest = tree.query_ball_point(points[i], radius)
+                if len(nearest) > nb_neighbours:
+                    neighbours[nearest] = 1
+
+    # keep only points that have no. of neighbours above the threshold
+    return neighbours == 1
