@@ -1,41 +1,39 @@
 from input_output.ply import import_point_cloud_from_ply, export_numpy_array_to_ply
 from processing.process import remove_points_far_away_from_centroid, remove_points_with_less_neighbours, \
-    down_sample_point_cloud
+    down_sample_point_cloud, remove_statistical_outliers
 import numpy as np
 import open3d as o3d
 
 from processing.icp import icp
 
 
-def test_removal_with_radius(file_name="test.ply"):
+def test_removal_with_radius(file_name="test.ply", nb_neighbours=35, radius=0.05):
     points, colors = import_point_cloud_from_ply(file_name)
-    nb_neighbours = 35
-    radius = 0.05
     indices = remove_points_with_less_neighbours(points, nb_neighbours, radius)
-    colors[indices] = (0, 255, 0)
-    export_numpy_array_to_ply(points[indices], colors[indices],
-                              f'removed_neighbours_less_than_{nb_neighbours}_radius_{radius}.ply',
-                              rotate_columns=False)
-
     indices = np.invert(indices)
     colors[indices] = (0, 0, 255)
-    export_numpy_array_to_ply(points[indices], colors[indices],
-                              f'what_has_been_removed_{nb_neighbours}_radius_{radius}.ply',
+    export_numpy_array_to_ply(points, colors,
+                              f'removed_neighbours_less_than_{nb_neighbours}_radius_{radius}.ply',
                               rotate_columns=False)
 
 
 def test_removal_centroid(file_name="test.ply", cutoff=1.0):
     points, colors = import_point_cloud_from_ply(file_name)
     indices = remove_points_far_away_from_centroid(points, cutoff)
-    colors[indices] = (255, 0, 0)
-    export_numpy_array_to_ply(points[indices], colors[indices], f'removed_with_cutoff_{cutoff}.ply',
-                              rotate_columns=False)
 
     indices = np.invert(indices)
-    colors[indices] = (0, 255, 255)
-    export_numpy_array_to_ply(points[indices], colors[indices],
-                              f'what_has_been_removed_with_cutoff_{cutoff}.ply',
+    colors[indices] = (0, 0, 255)
+    export_numpy_array_to_ply(points, colors,
+                              f'removed_with_cutoff_{cutoff}.ply',
                               rotate_columns=False)
+
+
+def test_remove_outliers(file_name="outliers.ply", nb_neighbours=50, std_ratio=1):
+    points_a, colors_a = import_point_cloud_from_ply(file_name)
+    valid_indices = remove_statistical_outliers(points_a, nb_neighbours, std_ratio)
+    invalid_indices = np.invert(valid_indices)
+    colors_a[invalid_indices] = (0, 0, 255)
+    export_numpy_array_to_ply(points_a, colors_a, f"removed_outliers_{file_name}", rotate_columns=False)
 
 
 def test_icp(file_name1="test_nou1.ply", file_name2="test_nou2.ply", nb_neighbours=35, radius=0.05):
@@ -113,17 +111,8 @@ def remove_empty_points_from_point_clouds(dir_path: str):
 
 
 if __name__ == "__main__":
-    # test_removal_centroid("test_nou1.ply", cutoff=1)
-    # test_removal_with_radius("test_nou1.ply")
+    # test_removal_centroid("outliers.ply", cutoff=1)
+    # test_removal_with_radius("outliers.ply",radius=0.05)
     # test_icp()
     # test_open3d("test_nou1.ply", "test_nou2.ply")
-
-    points_a, colors_a = import_point_cloud_from_ply("result.ply")
-    keep_indices = down_sample_point_cloud(points_a)
-
-    export_numpy_array_to_ply(points_a[keep_indices], colors_a[keep_indices], "updated_result.ply",
-                              rotate_columns=False)
-
-    remove_indices = np.invert(keep_indices)
-    export_numpy_array_to_ply(points_a[remove_indices], colors_a[remove_indices], "removed_from_result.ply",
-                              rotate_columns=False)
+    test_remove_outliers(file_name="outliers.ply", nb_neighbours=30)
