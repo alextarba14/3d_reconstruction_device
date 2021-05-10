@@ -20,7 +20,7 @@ import time
 from icp_point_to_plane.icp_point_to_plane import icp
 from input_output.ply import default_export_points, export_numpy_array_to_ply
 from mathematics.matrix import get_indexes_of_valid_points
-from processing.process import get_texture_for_pointcloud
+from processing.process import get_texture_for_pointcloud, remove_statistical_outliers
 
 
 class AppState:
@@ -157,7 +157,7 @@ while True:
 
             mat_count = mat_count + 1
 
-        if mat_count == 10:
+        if mat_count == 20:
             # continue with the processing part
             break
 
@@ -204,29 +204,37 @@ while True:
 # Stop streaming
 pipeline.stop()
 
-colors = []
+print("Removing outliers from point clouds...")
+for i in range(len(vertices_array)):
+    # remove outliers statistically from each point cloud
+    valid_indices = remove_statistical_outliers(vertices_array[i], nb_neighbours=50, std_ratio=1)
+    vertices_array[i] = vertices_array[i][valid_indices]
+
+    # update the color data as well
+    tex_coords_array[i] = tex_coords_array[i][valid_indices]
+
+print("Outliers removed.")
+
+transf_matrices.append(np.eye(4, 4))
+# get first information about first point cloud
 X_src = vertices_array[0].copy()
 main_color = get_texture_for_pointcloud(X_src, tex_coords_array[0], texture_data_array[0], color_w, color_h,
                                         bytes_per_pixel, stride_in_bytes)
-colors.append(main_color)
-transf_matrices.append(np.eye(4, 4))
-
 for i in range(1, len(vertices_array)):
     X_dst = vertices_array[i].copy()
     # get transformation matrix that match destination over source
     Tr = icp(X_src, X_dst)
     transf_matrices.append(Tr)
     # get color for current point cloud
-    current_color = get_texture_for_pointcloud(X_dst, tex_coords_array[i], texture_data_array[i], color_w, color_h,
+    current_color = get_texture_for_pointcloud(vertices_array[i].copy(), tex_coords_array[i], texture_data_array[i], color_w, color_h,
                                                bytes_per_pixel, stride_in_bytes)
-    # append color to colors array
-    colors.append(current_color)
+    # append color to the main color array
+    main_color = np.vstack((main_color, current_color))
 
     # update the current source
     X_src = vertices_array[i].copy()
 
 main_pc = vertices_array[0]
-main_color = colors[0]
 index = 1
 length = len(vertices_array)
 # apply transformation to align each point cloud over the first point cloud
@@ -241,23 +249,20 @@ while index < length:
     # transpose current point cloud to allow matrix multiplication
     current_pc = current_pc.T
 
+    # apply all transformation matrices to current point cloud
     j = 1
     while j <= index:
-        # apply all transformation matrices
         current_transf = transf_matrices[j]
         current_pc = current_transf @ current_pc
         j = j + 1
 
     # transpose current point cloud back to have info in xyz coordinates
     current_pc = current_pc.T
+    # remove column used to allow matrix multiplication
     current_pc = np.delete(current_pc, 3, axis=1)
 
     # append current point cloud to the main point cloud
     main_pc = np.vstack((main_pc, current_pc))
-
-    # append the color as well
-    current_color = colors[index]
-    main_color = np.vstack((main_color, current_color))
 
     # move to the next point cloud
     index = index + 1
