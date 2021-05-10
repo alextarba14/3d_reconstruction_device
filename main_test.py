@@ -1,5 +1,6 @@
 from input_output.ply import import_pointcloud_from_ply, export_numpy_array_to_ply
-from mathematics.transformations import remove_points_far_away_from_centroid, remove_points_with_less_neighbours
+from processing.process import remove_points_far_away_from_centroid, remove_points_with_less_neighbours, \
+    down_sample_point_cloud
 import numpy as np
 import open3d as o3d
 
@@ -113,10 +114,17 @@ def remove_empty_points_from_point_clouds(dir_path: str):
 if __name__ == "__main__":
     # test_removal_centroid("test_nou1.ply", cutoff=1)
     # test_removal_with_radius("test_nou1.ply")
-    test_icp()
+    # test_icp()
     # test_open3d("test_nou1.ply", "test_nou2.ply")
 
+    points_a, colors_a = import_pointcloud_from_ply("result.ply")
+    keep_indices = down_sample_point_cloud(points_a)
 
+    export_numpy_array_to_ply(points_a[keep_indices], colors_a[keep_indices], "updated_result.ply", rotate_columns=False)
+
+    remove_indices = np.invert(keep_indices)
+    export_numpy_array_to_ply(points_a[remove_indices], colors_a[remove_indices], "removed_from_result.ply",
+                              rotate_columns=False)
 
 
 
