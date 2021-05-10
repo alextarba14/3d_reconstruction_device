@@ -66,6 +66,40 @@ def remove_points_with_less_neighbours(points, nb_neighbours, radius=0.03):
     return neighbours == 1
 
 
+def remove_statistical_outliers(point_cloud, nb_neighbours: int, std_ratio: float):
+    """
+    For a given point cloud it searches only for the valid points
+    removing outliers from the point cloud.
+    For each point, we compute the mean distance from it to all its neighbors.
+    By assuming that the resulted distribution is Gaussian with a mean and a standard deviation,
+    all points whose mean distances are outside an interval defined by the global distances mean
+    and standard deviation can be considered as outliers and trimmed from the dataset.
+    """
+    # create a KDTree structure for the given point cloud
+    kd_tree = spatial.cKDTree(point_cloud)
+
+    # get distances for each point to his nearest <nb_neighbours> points
+    distances, indices = kd_tree.query(point_cloud, k=nb_neighbours, p=2, n_jobs=-1)
+
+    # compute mean distance for each point in point cloud
+    distances_squared = np.square(distances)
+
+    # get mean of distances squared for each point
+    mean_distances_squared = np.mean(distances_squared, axis=1)
+
+    # compute cloud mean distance squared
+    cloud_mean = np.mean(distances_squared)
+
+    # get standard deviation
+    std_dev = np.std(distances_squared)
+
+    # compute the threshold used to remove outliers
+    distance_threshold = cloud_mean + std_ratio * std_dev
+
+    # return only the valid indices
+    return mean_distances_squared < distance_threshold
+
+
 def down_sample_point_cloud(point_cloud):
     """
     Down sample point cloud to remove points that are to close to each other
