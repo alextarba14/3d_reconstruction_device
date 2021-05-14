@@ -1,10 +1,11 @@
+from icp_point_to_plane.icp_point_to_plane import icp
 from input_output.ply import import_point_cloud_from_ply, export_numpy_array_to_ply
+from processing.icp import icp_point_to_point
 from processing.process import remove_points_far_away_from_centroid, remove_points_with_less_neighbours, \
     down_sample_point_cloud, remove_statistical_outliers
 import numpy as np
 import open3d as o3d
 
-from processing.icp import icp
 
 
 def test_removal_with_radius(file_name="test.ply", nb_neighbours=35, radius=0.05):
@@ -36,24 +37,41 @@ def test_remove_outliers(file_name="outliers.ply", nb_neighbours=50, std_ratio=1
     export_numpy_array_to_ply(points_a, colors_a, f"removed_outliers_{file_name}", rotate_columns=False)
 
 
-def test_icp(file_name1="test_nou1.ply", file_name2="test_nou2.ply", nb_neighbours=35, radius=0.05):
-    # remove outliers from point cloud A
-    points_a, colors_a = import_point_cloud_from_ply(file_name1)
-    # indices = remove_points_with_less_neighbours(points_a, nb_neighbours, radius)
-    # indices = np.invert(indices)
-    # points_a[indices] = (0, 0, 0)
+def test_icp(file_name1="test_nou1.ply", file_name2="test_nou2.ply"):
+    # import point cloud a
+    X_src, colors_src = import_point_cloud_from_ply(file_name1)
+    # remove invalid points first
+    indices = X_src[:, 2] != 0
+    X_src = X_src[indices]
+    colors_a = colors_src[indices]
 
-    # remove outliers from point cloud B
-    points_b, colors_b = import_point_cloud_from_ply(file_name2)
-    # indices = remove_points_with_less_neighbours(points_b, nb_neighbours, radius)
-    # indices = np.invert(indices)
-    # points_b[indices] = (0, 0, 0)
+    indices = remove_statistical_outliers(X_src, nb_neighbours=50, std_ratio=1)
 
-    invalid_indices = points_a[:, 2] == 0
+    # keep only the valid points, without outliers
+    points_a = X_src[indices]
+    colors_a = colors_a[indices]
+
+    # import point cloud b
+    X_dst, colors_b = import_point_cloud_from_ply(file_name2)
+
+    # remove invalid points first
+    indices = X_dst[:, 2] != 0
+    X_dst = X_dst[indices]
+    indices = remove_statistical_outliers(X_dst, nb_neighbours=50, std_ratio=1)
+    points_b = X_dst[indices]
+
+    # remove some points from the bigger point cloud to have the same shape
+    len_b = points_b.shape[0]
+    len_a = points_a.shape[0]
+    if len_b < len_a:
+        points_a = points_a[:-(len_a-len_b)]
+        colors_a = colors_a[:-(len_a-len_b)]
+    else:
+        points_b = points_b[:-(len_b-len_a)]
 
     initial_transformation = np.eye(4, 4)
     # perform icp on point clouds without outliers
-    T = icp(points_a, points_b, initial_transformation)
+    T = icp_point_to_point(points_a, points_b, initial_transformation)
     print("Transformation:\n", T)
 
     ones = np.ones((len(points_a), 1))
@@ -113,6 +131,6 @@ def remove_empty_points_from_point_clouds(dir_path: str):
 if __name__ == "__main__":
     # test_removal_centroid("outliers.ply", cutoff=1)
     # test_removal_with_radius("outliers.ply",radius=0.05)
-    # test_icp()
+    test_icp()
     # test_open3d("test_nou1.ply", "test_nou2.ply")
-    test_remove_outliers(file_name="outliers.ply", nb_neighbours=30)
+    # test_remove_outliers(file_name="outliers.ply", nb_neighbours=30)

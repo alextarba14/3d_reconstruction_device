@@ -105,7 +105,7 @@ def flann(src, dst):
     return distances.ravel(), indices.ravel()
 
 
-def icp_point_to_point(A, B, initial_transformation=None, max_iterations=50, tolerance=0.00001):
+def icp_point_to_point(A, B, initial_transformation=None, max_iterations=50, tolerance=0.0001):
     """
     The Iterative Closest Point method: finds best-fit transform that maps points A on to points B
     Input:
@@ -161,6 +161,7 @@ def icp_point_to_point(A, B, initial_transformation=None, max_iterations=50, tol
             print("Best_fit: ", best_fit)
         else:
             nr_hits = nr_hits + 1
+        print(f'Iteration {i} from {max_iterations}...')
 
         # close the loop when the mean_error didn't dropped for three times in a row
         if nr_hits > 2:
