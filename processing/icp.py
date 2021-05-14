@@ -1,5 +1,8 @@
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
+from scipy import spatial
+from pyflann import *
+
 
 def best_fit_transform(A, B):
     """
@@ -68,7 +71,41 @@ def nearest_neighbor(src, dst):
     return distances.ravel(), indices.ravel()
 
 
-def icp(A, B, initial_transformation=None, max_iterations=25, tolerance=0.001):
+def spatial_kdtree(src, dst):
+    """
+    Find the nearest (Euclidean) neighbor in dst for each point in src using KDTree.
+    Input:
+        src: nxm array of points: source
+        dst: nxm array of points: destination
+    Output:
+        distances: Euclidean distances of the nearest neighbor
+        indices: dst indices of the nearest neighbors
+    """
+    assert src.shape == dst.shape
+    kd_tree = spatial.cKDTree(dst)
+
+    # get distances for each point to his nearest <nb_neighbours> points
+    distances, indices = kd_tree.query(src, k=1, p=2, n_jobs=-1)
+    return distances.ravel(), indices.ravel()
+
+
+def flann(src, dst):
+    """
+    Find the nearest (Euclidean) neighbor in dst for each point in src using FLANN and KDTree.
+    Input:
+        src: nxm array of points: source
+        dst: nxm array of points: destination
+    Output:
+        distances: Euclidean distances of the nearest neighbor
+        indices: dst indices of the nearest neighbors
+    """
+    assert src.shape == dst.shape
+    flann = FLANN()
+    indices, distances = flann.nn(dst, src, 1, algorithm="kdtree", branching=32, iterations=7, checks=16)
+    return distances.ravel(), indices.ravel()
+
+
+def icp_point_to_point(A, B, initial_transformation=None, max_iterations=50, tolerance=0.00001):
     """
     The Iterative Closest Point method: finds best-fit transform that maps points A on to points B
     Input:
@@ -102,7 +139,9 @@ def icp(A, B, initial_transformation=None, max_iterations=25, tolerance=0.001):
     nr_hits = 0
     for i in range(max_iterations):
         # find the nearest neighbors between the current source and destination points
-        distances, indices = nearest_neighbor(src[:m, :].T, dst[:m, :].T)
+        # distances, indices = nearest_neighbor(src[:m, :].T, dst[:m, :].T)
+        distances, indices = spatial_kdtree(src[:m, :].T, dst[:m, :].T)
+        # distances, indices = flann(src[:m, :].T, dst[:m, :].T)
 
         # compute the transformation between the current source and nearest destination points
         T = best_fit_transform(src[:m, :].T, dst[:m, indices].T)
@@ -126,7 +165,6 @@ def icp(A, B, initial_transformation=None, max_iterations=25, tolerance=0.001):
         # close the loop when the mean_error didn't dropped for three times in a row
         if nr_hits > 2:
             break
-        print(f'Step {i} from {max_iterations}...')
 
     # calculate final transformation
     best_T = best_fit_transform(best_src[:m, :].T, A)
@@ -134,5 +172,4 @@ def icp(A, B, initial_transformation=None, max_iterations=25, tolerance=0.001):
     # # remove the extra ones from the src before returning it
     # best_src = best_src.T
     # best_src = np.delete(best_src, 3, axis=1)
-
     return best_T
