@@ -7,7 +7,6 @@ import numpy as np
 import open3d as o3d
 
 
-
 def test_removal_with_radius(file_name="test.ply", nb_neighbours=35, radius=0.05):
     points, colors = import_point_cloud_from_ply(file_name)
     indices = remove_points_with_less_neighbours(points, nb_neighbours, radius)
@@ -64,10 +63,10 @@ def test_icp(file_name1="test_nou1.ply", file_name2="test_nou2.ply"):
     len_b = points_b.shape[0]
     len_a = points_a.shape[0]
     if len_b < len_a:
-        points_a = points_a[:-(len_a-len_b)]
-        colors_a = colors_a[:-(len_a-len_b)]
+        points_a = points_a[:-(len_a - len_b)]
+        colors_a = colors_a[:-(len_a - len_b)]
     else:
-        points_b = points_b[:-(len_b-len_a)]
+        points_b = points_b[:-(len_b - len_a)]
 
     initial_transformation = np.eye(4, 4)
     # perform icp on point clouds without outliers
@@ -128,9 +127,45 @@ def remove_empty_points_from_point_clouds(dir_path: str):
             print(f.name)
 
 
+def test_icp_point_to_plane(file_name1="test_nou1.ply", file_name2="test_nou2.ply"):
+    # Mapping source over destination using icp point_to_plane method
+    # import source point cloud
+    X_src, colors_src = import_point_cloud_from_ply(file_name1)
+    valid_indices_src = X_src[:, 2] != 0
+    X_src = X_src[valid_indices_src]
+
+    # remove outliers from source
+    indices = remove_statistical_outliers(X_src, nb_neighbours=50, std_ratio=1)
+    X_src = X_src[indices]
+
+    # import destination point cloud
+    X_dst, colors_dst = import_point_cloud_from_ply(file_name2)
+    valid_indices_dst = X_dst[:, 2] != 0
+    X_dst = X_dst[valid_indices_dst]
+    colors_dst = colors_dst[valid_indices_dst]
+
+    # remove outliers from destination
+    indices = remove_statistical_outliers(X_dst, nb_neighbours=50, std_ratio=1)
+    X_dst = X_dst[indices]
+    colors_dst = colors_dst[indices]
+
+    # get transformation matrix that match destination over source
+    Tr = icp(X_src, X_dst)
+
+    ones = np.ones((len(X_dst), 1))
+    X_dst = np.append(X_dst, ones, axis=1)
+    X_result = Tr @ X_dst.T
+    X_result = X_result.T
+    X_result = np.delete(X_result, 3, axis=1)
+
+    export_numpy_array_to_ply(X_result, colors_dst, "after_icp_point_without_outliers_to_plane.ply", rotate_columns=False)
+
+
 if __name__ == "__main__":
     # test_removal_centroid("outliers.ply", cutoff=1)
     # test_removal_with_radius("outliers.ply",radius=0.05)
-    test_icp()
+    # test_icp()
     # test_open3d("test_nou1.ply", "test_nou2.ply")
     # test_remove_outliers(file_name="outliers.ply", nb_neighbours=30)
+
+    test_icp_point_to_plane()
