@@ -94,10 +94,15 @@ def remove_statistical_outliers(point_cloud, nb_neighbours: int, std_ratio: floa
     std_dev = np.std(distances_squared)
 
     # compute the threshold used to remove outliers
-    distance_threshold = cloud_mean + std_ratio * std_dev
+    upper_threshold = cloud_mean + std_ratio * std_dev
+    bottom_threshold = cloud_mean - std_ratio * std_dev
 
-    # return only the valid indices
-    return mean_distances_squared < distance_threshold
+    # get indices from cloud_mean < sigma
+    positive = mean_distances_squared < upper_threshold
+    negative = bottom_threshold < mean_distances_squared
+
+    # mask indices from -sigma < cloud_mean < +sigma from distribution
+    return positive & negative
 
 
 def down_sample_point_cloud(point_cloud):
