@@ -20,7 +20,7 @@ import time
 from icp_point_to_plane.icp_point_to_plane import icp
 from input_output.ply import default_export_points, export_numpy_array_to_ply
 from mathematics.matrix import get_indexes_of_valid_points
-from processing.process import get_texture_for_pointcloud, remove_statistical_outliers
+from processing.process import get_texture_for_pointcloud, remove_statistical_outliers, down_sample_point_cloud
 
 
 class AppState:
@@ -157,7 +157,7 @@ while True:
 
             mat_count = mat_count + 1
 
-        if mat_count == 20:
+        if mat_count == 10:
             # continue with the processing part
             break
 
@@ -267,4 +267,15 @@ while index < length:
     # move to the next point cloud
     index = index + 1
 
-export_numpy_array_to_ply(main_pc, main_color, "result.ply")
+
+print("Down sampling point cloud.")
+indices = down_sample_point_cloud(main_pc)
+
+export_numpy_array_to_ply(main_pc, main_color, "./demo/result.ply")
+
+
+export_numpy_array_to_ply(main_pc[indices], main_color[indices], "./demo/down_sampled_result.ply")
+removed_indices = np.invert(indices)
+
+export_numpy_array_to_ply(main_pc[removed_indices], main_color[removed_indices], "./demo/removed_from_result.ply")
+

@@ -52,23 +52,18 @@ def create_rotation_matrix(gyro_data):
     return mat
 
 
-def create_transformation_matrix(rotation_matrix, translation):
+def create_transformation_matrix_from_rotation(rotation_matrix):
     """
-    It creates a transformation matrix from a rotation matrix and a translation vector.
+    It creates a transformation matrix from a rotation matrix.
     """
     # convert to numpy array
     rotation = np.array(rotation_matrix)
-    translation = np.array(translation)
 
     # initialize transformation matrix as Identity
     transf_mat = np.eye(4, 4, dtype=np.float32)
 
     # copy rotation matrix in transformation matrix
     transf_mat[:3, :3] = rotation
-
-    # multiplying rotation matrix with translation matrix
-    # Reference: http://www.fastgraph.com/makegames/3drotation/
-    transf_mat[:3, 3] = rotation @ translation
 
     return transf_mat
 
