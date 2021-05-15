@@ -157,7 +157,7 @@ while True:
 
             mat_count = mat_count + 1
 
-        if mat_count == 10:
+        if mat_count == 20:
             # continue with the processing part
             break
 
@@ -204,32 +204,35 @@ while True:
 # Stop streaming
 pipeline.stop()
 
-print("Removing outliers from point clouds...")
+# close opencv window
+cv2.destroyAllWindows()
+
+colors_list = []
+print("Computing colors and removing outliers from point clouds...")
 for i in range(len(vertices_array)):
     # remove outliers statistically from each point cloud
+    current_color = get_texture_for_pointcloud(vertices_array[i].copy(), tex_coords_array[i], texture_data_array[i],
+                                               color_w, color_h,
+                                               bytes_per_pixel, stride_in_bytes)
+    # remove noisy data from each point cloud
     valid_indices = remove_statistical_outliers(vertices_array[i], nb_neighbours=50, std_ratio=1)
     vertices_array[i] = vertices_array[i][valid_indices]
 
-    # update the color data as well
-    tex_coords_array[i] = tex_coords_array[i][valid_indices]
+    # append color to the main color array with valid indices
+    colors_list.append(current_color[valid_indices])
 
+# create main_color array to match main_point_cloud
+main_color = np.vstack(colors_list)
 print("Outliers removed.")
 
 transf_matrices.append(np.eye(4, 4))
 # get first information about first point cloud
 X_src = vertices_array[0].copy()
-main_color = get_texture_for_pointcloud(X_src, tex_coords_array[0], texture_data_array[0], color_w, color_h,
-                                        bytes_per_pixel, stride_in_bytes)
 for i in range(1, len(vertices_array)):
     X_dst = vertices_array[i].copy()
     # get transformation matrix that match destination over source
     Tr = icp(X_src, X_dst)
     transf_matrices.append(Tr)
-    # get color for current point cloud
-    current_color = get_texture_for_pointcloud(vertices_array[i].copy(), tex_coords_array[i], texture_data_array[i], color_w, color_h,
-                                               bytes_per_pixel, stride_in_bytes)
-    # append color to the main color array
-    main_color = np.vstack((main_color, current_color))
 
     # update the current source
     X_src = vertices_array[i].copy()
@@ -274,8 +277,8 @@ indices = down_sample_point_cloud(main_pc)
 export_numpy_array_to_ply(main_pc, main_color, "./demo/result.ply")
 
 
-export_numpy_array_to_ply(main_pc[indices], main_color[indices], "./demo/down_sampled_result.ply")
+export_numpy_array_to_ply(main_pc[indices], main_color[indices], "./demo/down_sampled_result.ply", rotate_columns=False)
 removed_indices = np.invert(indices)
 
-export_numpy_array_to_ply(main_pc[removed_indices], main_color[removed_indices], "./demo/removed_from_result.ply")
+export_numpy_array_to_ply(main_pc[removed_indices], main_color[removed_indices], "./demo/removed_from_result.ply", rotate_columns=False)
 
