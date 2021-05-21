@@ -82,6 +82,65 @@ def match_frames_FLANN_angles(prev_image, curr_image):
     return valid_pts_A, valid_pts_B
 
 
+def get_correspondences(prev_image, curr_image):
+    """
+    Get correspondences between frames using keypoint features and descriptors matched by ORB.
+    Using OpenCV findHomography with RANSAC separate inliers from outliers.
+    It returns only the inliers points in both frames.
+    Args:
+        prev_image: a numpy array containing RGB of the previous frame.
+        curr_image: a numpy array containing RGB of the current frame.
+    Returns:
+        pts_A[inliers]: a numpy array with points that are considered valid from prev_image.
+        pts_B[inliers]: a numpy array with points that are considered valid from curr_image.
+    """
+    # Initiate ORB detector
+    orb = cv2.ORB_create()
+
+    # find the keypoints and descriptors with ORB
+    prev_kp, prev_des = orb.detectAndCompute(prev_image, None)
+    curr_kp, curr_des = orb.detectAndCompute(curr_image, None)
+
+    # FLANN parameters
+    FLANN_INDEX_LSH = 6
+    index_params = dict(algorithm=FLANN_INDEX_LSH,
+                        table_number=6,  # 12
+                        key_size=12,  # 20
+                        multi_probe_level=1)  # 2
+    search_params = dict(checks=50)  # or pass empty dictionary
+
+    flann = cv2.FlannBasedMatcher(index_params, search_params)
+
+    knn_matches = flann.knnMatch(prev_des, curr_des, k=2)
+
+    # -- Filter matches using the Lowe's ratio test
+    ratio_thresh = 0.7
+    good = []
+    for i, pair in enumerate(knn_matches):
+        try:
+            m, n = pair
+            if m.distance < ratio_thresh * n.distance:
+                p_prev = tuple(prev_kp[m.queryIdx].pt)
+                p_curr = tuple(curr_kp[m.trainIdx].pt)
+                good.append([p_prev, p_curr])
+        except (ValueError, IndexError):
+            pass
+    good = np.asarray(good, dtype=int)
+
+    # get points in previous and current image
+    pts_A, pts_B = good[:, 0, :], good[:, 1, :]
+
+    # find inliers by computing homography
+    try:
+        M, mask = cv2.findHomography(pts_A, pts_B, cv2.RANSAC, 0.001)
+    except cv2.error:
+        raise ValueError("Couldn't find correspondences")
+
+    # get inliers indices
+    inliers = np.ravel(mask) == 1
+    return pts_A[inliers], pts_B[inliers]
+
+
 def add_ones(arr):
     """
     Append a a column full of ones to transform the given array to homogeneous coordinates.
