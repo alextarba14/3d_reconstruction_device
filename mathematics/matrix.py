@@ -71,3 +71,22 @@ def create_transformation_matrix(rotation_matrix, translation):
     transf_mat[:3, 3] = rotation @ translation
 
     return transf_mat
+
+
+def get_indexes_of_valid_points(point_cloud):
+    """
+    Returns a tuple with indexes only for points that have valid depth (depth>0)
+    and are not too far away  (depth< 3) .
+    Args:
+        point_cloud: (n,3) array containing coordinates of point in xyz.
+    Returns:
+        A tuple containing valid point indexes.
+    """
+
+    # keep only elements that have depth greater than 0
+    valid_points = point_cloud[:, 2] > 0
+    # keep only elements that are not too far away
+    close_points = point_cloud[:, 2] <= 2.5
+
+    # result keep points in (0,2.5] meters
+    return valid_points & close_points
