@@ -17,10 +17,11 @@ import numpy as np
 import pyrealsense2 as rs
 import time
 from input_output.ply import default_export_points, export_numpy_array_to_ply
-from mathematics.matrix import get_trapz_integral_by_time, create_rotation_matrix, create_transformation_matrix
+from mathematics.matrix import get_trapz_integral_by_time, create_rotation_matrix, create_transformation_matrix, \
+    get_indexes_of_valid_points
 from mathematics.transformations import apply_transformations
 from processing.icp import icp
-from processing.process import get_texture_from_pointcloud
+from processing.process import get_texture_from_pointcloud, remove_statistical_outliers, down_sample_point_cloud
 
 
 class AppState:
@@ -89,7 +90,7 @@ decimate.set_option(rs.option.filter_magnitude, 3)
 colorizer = rs.colorizer()
 
 cv2.namedWindow(state.WIN_NAME, cv2.WINDOW_AUTOSIZE)
-cv2.resizeWindow(state.WIN_NAME, w, h)
+cv2.resizeWindow(state.WIN_NAME, 640,480)
 
 
 def project(v):
@@ -162,7 +163,7 @@ tex_coords_array = []
 color_frames = []
 transf_matrices = []
 
-threshold = 30
+threshold = 10
 frame_count = -1
 accel_state = [0, -9.81, 0, 1]
 accel_data_array = [[0 for x in range(3)] for y in range(threshold)]
@@ -243,13 +244,14 @@ while True:
             transf_mat = create_transformation_matrix(rotation_matrix, [0,0,0])
 
             # append to bigger lists
-            vertices_array.append(verts)
+            valid_points = get_indexes_of_valid_points(verts)
+            vertices_array.append(verts[valid_points])
             transf_matrices.append(transf_mat)
             color_frames.append(color_frame)
-            tex_coords_array.append(texcoords)
+            tex_coords_array.append(texcoords[valid_points])
             mat_count = mat_count + 1
 
-        if mat_count == 7:
+        if mat_count == 10:
             # continue with the processing part
             break
 
@@ -296,20 +298,42 @@ while True:
 # Stop streaming
 pipeline.stop()
 
-# print(transf_matrices)
-updated_transformation_matrices=[]
-# processing part
-for i in range(len(vertices_array)-1):
-    src = vertices_array[i]
-    dst = vertices_array[i+1]
-    T = icp(src,dst, transf_matrices[i])
-    updated_transformation_matrices.append(T)
+# apply transformation to each point cloud
+updated_pointclouds = apply_transformations(vertices_array, transf_matrices)
 
-# append identity matrix to have the same number as vertices
-updated_transformation_matrices.append(np.eye(4,4))
-updated_pointclouds = apply_transformations(vertices_array, updated_transformation_matrices)
+print("Removing outliers from point clouds...")
+for i in range(len(vertices_array)):
+    # remove outliers statistically from each point cloud
+    valid_indices = remove_statistical_outliers(updated_pointclouds[i], nb_neighbours=50, std_ratio=1)
+    updated_pointclouds[i] = updated_pointclouds[i][valid_indices]
 
-for i in range(len(updated_pointclouds)):
-    texture = get_texture_from_pointcloud(updated_pointclouds[i], tex_coords_array[i], color_frames[i])
-    export_numpy_array_to_ply(updated_pointclouds[i], texture, f'updated_pointcloud_icp{i}.ply')
+    # update the color data as well
+    tex_coords_array[i] = tex_coords_array[i][valid_indices]
+
+print("Outliers removed.")
+
+# create a main point cloud with associated color
+main_pc = updated_pointclouds[0]
+main_color = get_texture_from_pointcloud(updated_pointclouds[0], tex_coords_array[0], color_frames[0])
+
+# parse each point cloud to get the color
+for i in range(1, len(updated_pointclouds)):
+    current_color = get_texture_from_pointcloud(updated_pointclouds[i], tex_coords_array[i], color_frames[i])
+
+    # append color to the main color array
+    main_color = np.vstack((main_color, current_color))
+    # append current point cloud to the main point cloud
+    main_pc = np.vstack((main_pc, updated_pointclouds[i]))
+
+print("Down sampling point cloud.")
+indices = down_sample_point_cloud(main_pc)
+
+export_numpy_array_to_ply(main_pc, main_color, "./demo/result.ply")
+
+
+export_numpy_array_to_ply(main_pc[indices], main_color[indices], "./demo/down_sampled_result.ply", rotate_columns=False)
+removed_indices = np.invert(indices)
+
+export_numpy_array_to_ply(main_pc[removed_indices], main_color[removed_indices], "./demo/removed_from_result.ply", rotate_columns=False)
+
 
