@@ -5,7 +5,11 @@ import math
 from skimage.measure import ransac
 from skimage.transform import AffineTransform, EssentialMatrixTransform
 
-from features.features import match_frames_FLANN_angles
+from features.features import get_correspondences, add_ones
+import pyrealsense2 as rs
+
+from input_output.ply import import_point_cloud_from_ply, export_numpy_array_to_ply
+from processing.icp import best_fit_transform, icp_point_to_point
 
 
 def test_harris_corner_detector(file_name="./pictures/color_5.png"):
@@ -268,17 +272,17 @@ def feature_match_BF_KNN(file_name1="./pictures2/color_4.png", file_name2="./pic
     plt.imshow(img3), plt.show()
 
 
-def feature_match_FLANN_RANSAC(file_name1="./pictures/test_color_0.png", file_name2="./pictures/test_color_1.png"):
+def feature_match_FLANN_RANSAC(file_name1="./pictures/test_color_1.png", file_name2="./pictures/test_color_2.png"):
     prev_image = cv2.imread(file_name1, 0)  # queryImage
     curr_image = cv2.imread(file_name2, 0)  # trainImage
 
-    prev_kp, curr_kp, good_matches = get_correspondences(prev_image, curr_image)
+    prev_kp, curr_kp, good_matches = get_correspondences_flann(prev_image, curr_image)
 
     img3 = cv2.drawMatches(prev_image, prev_kp, curr_image, curr_kp, good_matches, outImg=None, flags=2)
     plt.imshow(img3), plt.show()
 
 
-def get_correspondences(prev_image, curr_image):
+def get_correspondences_flann(prev_image, curr_image):
     # Initiate ORB detector
     orb = cv2.ORB_create()
 
@@ -340,11 +344,21 @@ def get_correspondences(prev_image, curr_image):
     for i in range(len(pts_B)):
         x = pts_B[i][0]
         y = pts_B[i][1]
-        cv2.circle(curr_image, (x, y), 3, 255, -1)
+        cv2.rectangle(curr_image, (x-10, y-10),(x+10, y+10), 255, 3, -1)
     plt.imshow(curr_image), plt.show()
 
     return prev_kp, curr_kp, np.array(good_matches)[inliers]
 
+
+pipeline = rs.pipeline()
+config = rs.config()
+config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+
+# Start streaming
+cfg = pipeline.start(config)
+
+profile = cfg.get_stream(rs.stream.color)
+intr_color = profile.as_video_stream_profile().get_intrinsics()
 
 if __name__ == "__main__":
     # test_harris_corner_detector()
@@ -359,4 +373,53 @@ if __name__ == "__main__":
     # feature_match_BF()
     # feature_match_FLANN_angles()
     feature_match_FLANN_RANSAC()
+
+    prev_image = cv2.imread("./pictures/test_color_1.png", 0)  # queryImage
+    curr_image = cv2.imread("./pictures/test_color_2.png", 0)  # trainImage
+
+    prev_depth = cv2.imread("./pictures/test_depth_1.png", 0)
+    curr_depth = cv2.imread("./pictures/test_depth_2.png", 0)
+
+    pts_A, pts_B = get_correspondences(prev_image, curr_image)
+
+    # taken from the camera
+    depth_scale = 0.0010000000474974513
+    depth_prev = np.array([prev_depth[y, x] for x, y in pts_A]) * depth_scale
+    depth_curr = np.array([curr_depth[y, x] for x, y in pts_B]) * depth_scale
+
+    # remove zero depth points from both
+    valid_a = [depth_prev > 0]
+    valid_b = [depth_curr > 0]
+
+    # need valid correspondences in both point sets
+    valid = valid_a and valid_b
+    depth_prev = depth_prev[valid]
+    depth_curr = depth_curr[valid]
+
+    pts_A = pts_A[valid]
+    pts_B = pts_B[valid]
+
+    left_points = []
+    right_points = []
+    i = 0
+    length = len(pts_A)
+    while i < length:
+        left_points.append(rs.rs2_deproject_pixel_to_point(intr_color, pts_A[i], depth_prev[i]))
+        right_points.append(rs.rs2_deproject_pixel_to_point(intr_color, pts_B[i], depth_curr[i]))
+        i = i + 1
+
+    left_points = np.array(left_points)
+    right_points = np.array(right_points)
+
+    T = icp_point_to_point(right_points, left_points, tolerance=0.000001)
+
+    print("Transformation: ", T)
+    points_a, colors_a = import_point_cloud_from_ply("./pictures/point_cloud_1.ply")
+    points_b, colors_b = import_point_cloud_from_ply("./pictures/point_cloud_2.ply")
+
+    points_a_ext = add_ones(points_a)
+    T = np.linalg.inv(T)
+    result = (T @ points_a_ext.T)[:3].T
+    export_numpy_array_to_ply(result, colors_a, "./pictures/test_result_1_2.ply", rotate_columns=False)
+
     print("It took:", time.time() - start)
