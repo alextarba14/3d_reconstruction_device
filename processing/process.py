@@ -80,17 +80,17 @@ def down_sample_point_cloud(point_cloud):
     # create a KDTree structure to find nearest neighbors
     kd_tree = spatial.cKDTree(point_cloud)
     # get the distances and indices between each point and 5 nearest neighbors
-    dist, indices = kd_tree.query(point_cloud, k=5, p=2, n_jobs=-1)
+    dist, indices = kd_tree.query(point_cloud, k=3, p=2, n_jobs=-1)
 
     # create an array with boolean values to keep or drop indices
     keep_indices = np.full(len(point_cloud), False, dtype=bool)
+
+    # compute median distances for each row
+    median_distances = np.median(dist, axis=1)
     for i in range(len(point_cloud)):
-        distances = dist[i]
-        inds = indices[i]
         # keep only indices that are above median value in distances
-        valid = dist[i, :] > np.median(distances)
-        for index in inds[valid]:
-            keep_indices[index] = True
+        # valid = dist[i, :] > median_distances[i]
+        keep_indices[indices[i][dist[i, :] > median_distances[i]]] = True
 
     print("Valid indices acquired.")
     return keep_indices
