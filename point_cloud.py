@@ -1,17 +1,13 @@
-# License: Apache 2.0. See LICENSE file in root directory.
-# Copyright(c) 2015-2017 Intel Corporation. All Rights Reserved.
-
 """
 OpenCV and Numpy Point cloud Software Renderer
 ------
 Keyboard:
+    [c]     Display only color or color and depth map.
     [d]     Cycle through decimation values
     [e]     Export points to ply (./<unix_timestamp>.ply)
     [q\ESC] Quit
 """
 
-import math
-import time
 import cv2
 import numpy as np
 import pyrealsense2 as rs
@@ -25,32 +21,10 @@ from processing.process import remove_statistical_outliers, down_sample_point_cl
 
 
 class AppState:
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self):
         self.WIN_NAME = 'RealSense'
-        self.pitch, self.yaw = math.radians(-10), math.radians(-15)
-        self.translation = np.array([0, 0, -1], dtype=np.float32)
-        self.distance = 2
-        self.prev_mouse = 0, 0
-        self.mouse_btns = [False, False, False]
-        self.paused = False
         self.decimate = 2
-        self.scale = True
         self.color = True
-
-    def reset(self):
-        self.pitch, self.yaw, self.distance = 0, 0, 2
-        self.translation[:] = 0, 0, -1
-
-    @property
-    def rotation(self):
-        Rx, _ = cv2.Rodrigues((self.pitch, 0, 0))
-        Ry, _ = cv2.Rodrigues((0, self.yaw, 0))
-        return np.dot(Ry, Rx).astype(np.float32)
-
-    @property
-    def pivot(self):
-        return self.translation + np.array((0, 0, self.distance), dtype=np.float32)
 
 
 state = AppState()
@@ -71,6 +45,7 @@ depth_profile = rs.video_stream_profile(profile.get_stream(rs.stream.depth))
 depth_intrinsics = depth_profile.get_intrinsics()
 w, h = depth_intrinsics.width, depth_intrinsics.height
 
+# align depth to color frames
 align_to = rs.stream.color
 align = rs.align(align_to)
 
@@ -94,70 +69,71 @@ mat_count = 0
 while True:
     # Render
     now = time.time()
-    # Grab camera data
-    if not state.paused:
-        # Wait for a coherent pair of frames: depth and color
-        frames = pipeline.wait_for_frames()
 
-        aligned_frames = align.process(frames)
-        depth_frame = aligned_frames.get_depth_frame()
-        color_frame = aligned_frames.get_color_frame()
+    # Wait for a coherent pair of frames: depth and color
+    frames = pipeline.wait_for_frames()
 
-        frame_count = frame_count + 1
+    aligned_frames = align.process(frames)
+    depth_frame = aligned_frames.get_depth_frame()
+    color_frame = aligned_frames.get_color_frame()
 
-        depth_frame = decimate.process(depth_frame)
+    frame_count = frame_count + 1
+    # create a depth color map for visualization
+    depth_colormap = np.asanyarray(colorizer.colorize(depth_frame).get_data())
+    depth_frame = decimate.process(depth_frame)
 
-        # Grab new intrinsics (may be changed by decimation)
-        depth_intrinsics = rs.video_stream_profile(
-            depth_frame.profile).get_intrinsics()
-        w, h = depth_intrinsics.width, depth_intrinsics.height
+    # Grab new intrinsics (may be changed by decimation)
+    depth_intrinsics = rs.video_stream_profile(
+        depth_frame.profile).get_intrinsics()
+    w, h = depth_intrinsics.width, depth_intrinsics.height
 
-        depth_image = np.asanyarray(depth_frame.get_data())
-        color_image = np.asanyarray(color_frame.get_data())
+    depth_image = np.asanyarray(depth_frame.get_data())
+    color_image = np.asanyarray(color_frame.get_data())
 
-        depth_colormap = np.asanyarray(
-            colorizer.colorize(depth_frame).get_data())
+    mapped_frame, color_source = color_frame, color_image
 
-        if state.color:
-            mapped_frame, color_source = color_frame, color_image
-        else:
-            mapped_frame, color_source = depth_frame, depth_colormap
+    points = pc.calculate(depth_frame)
+    pc.map_to(mapped_frame)
 
-        points = pc.calculate(depth_frame)
-        pc.map_to(mapped_frame)
+    # Pointcloud data to arrays
+    v, t = points.get_vertices(), points.get_texture_coordinates()
+    verts = np.asanyarray(v).view(np.float32).reshape(-1, 3)  # xyz
+    texcoords = np.asanyarray(t).view(np.float32).reshape(-1, 2)  # uv
 
-        # Pointcloud data to arrays
-        v, t = points.get_vertices(), points.get_texture_coordinates()
-        verts = np.asanyarray(v).view(np.float32).reshape(-1, 3)  # xyz
-        texcoords = np.asanyarray(t).view(np.float32).reshape(-1, 2)  # uv
+    if frame_count == 0:
+        continue
 
-        if frame_count == 0:
-            continue
+    index = frame_count % threshold
+    if index == 0:
+        print("Frame count:", frame_count)
+        # keep only valid points in point cloud
+        valid_points = get_indexes_of_valid_points(verts)
+        # get color from image based on texture coordinates
+        color = get_color_from_image(texcoords, color_image)
+        vertices_array.append(verts[valid_points])
+        color_array.append(color[valid_points])
 
-        index = frame_count % threshold
-        if index == 0:
-            print("Frame count:", frame_count)
-            # keep only valid points in point cloud
-            valid_points = get_indexes_of_valid_points(verts)
-            # get color from image based on texture coordinates
-            color = get_color_from_image(texcoords, color_image)
-            vertices_array.append(verts[valid_points])
-            color_array.append(color[valid_points])
+        mat_count = mat_count + 1
 
-            mat_count = mat_count + 1
-
-        if mat_count == 10:
-            # continue with the processing part
-            break
+    if mat_count == 20:
+        # continue with the processing part
+        break
 
     dt = time.time() - now
 
     cv2.setWindowTitle(
         state.WIN_NAME, "RealSense (%dx%d) %dFPS (%.2fms) %s" %
-                        (w, h, 1.0 / dt, dt * 1000, "PAUSED" if state.paused else ""))
+                        (w, h, 1.0 / dt, dt * 1000, ""))
 
-    cv2.imshow(state.WIN_NAME, color_image)
+    if state.color:
+        cv2.imshow(state.WIN_NAME, color_image)
+    else:
+        cv2.imshow(state.WIN_NAME, np.hstack((color_image, depth_colormap)))
+
+    # wait for keyboard interruptsc
     key = cv2.waitKey(1)
+    if key == ord("c"):
+        state.color = not state.color
 
     if key == ord("d"):
         state.decimate = (state.decimate + 1) % 3
