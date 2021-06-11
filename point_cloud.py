@@ -6,7 +6,7 @@ OpenCV and Numpy Point cloud Software Renderer
 ------
 Keyboard:
     [d]     Cycle through decimation values
-    [e]     Export points to ply (./out.ply)
+    [e]     Export points to ply (./<unix_timestamp>.ply)
     [q\ESC] Quit
 """
 
@@ -20,7 +20,8 @@ import time
 from icp_point_to_plane.icp_point_to_plane import icp
 from input_output.ply import default_export_points, export_numpy_array_to_ply
 from mathematics.matrix import get_indexes_of_valid_points
-from processing.process import get_texture_for_pointcloud, remove_statistical_outliers, down_sample_point_cloud
+from processing.process import remove_statistical_outliers, down_sample_point_cloud, \
+    get_color_from_image
 
 
 class AppState:
@@ -82,12 +83,8 @@ colorizer = rs.colorizer()
 cv2.namedWindow(state.WIN_NAME, cv2.WINDOW_AUTOSIZE)
 cv2.resizeWindow(state.WIN_NAME, w, h)
 
-out = np.empty((h, w, 3), dtype=np.uint8)
-
 vertices_array = []
-tex_coords_array = []
-texture_data_array = []
-transf_matrices = []
+color_array = []
 
 threshold = 10
 frame_count = -1
@@ -95,6 +92,8 @@ frame_count = -1
 index = 0
 mat_count = 0
 while True:
+    # Render
+    now = time.time()
     # Grab camera data
     if not state.paused:
         # Wait for a coherent pair of frames: depth and color
@@ -133,55 +132,23 @@ while True:
         texcoords = np.asanyarray(t).view(np.float32).reshape(-1, 2)  # uv
 
         if frame_count == 0:
-            # keep information to get color for each frame only once since they are all the same
-            color_w, color_h = color_frame.get_width(), color_frame.get_height()
-            bytes_per_pixel = color_frame.get_bytes_per_pixel()
-            stride_in_bytes = color_frame.get_stride_in_bytes()
             continue
 
         index = frame_count % threshold
         if index == 0:
             print("Frame count:", frame_count)
-            # get the rotation angle by integrating the rotation velocity
-            # rotation = get_trapz_integral_by_time(gyro_data_array)
-            # rotation_matrix = create_rotation_matrix(rotation)
-
-            # multiply rotation matrix with translation matrix in homogeneous coordinates
-            # transf_mat = create_transformation_matrix(rotation_matrix, [0,0,0])
-
             # keep only valid points in point cloud
             valid_points = get_indexes_of_valid_points(verts)
-            verts = verts[valid_points]
-
-            texture_data = np.asanyarray(color_frame.get_data()).view(np.uint8).reshape(-1, 1)
-            vertices_array.append(verts)
-            # transf_matrices.append(transf_mat)
-            texture_data_array.append(texture_data)
-            tex_coords_array.append(texcoords[valid_points])
+            # get color from image based on texture coordinates
+            color = get_color_from_image(texcoords, color_image)
+            vertices_array.append(verts[valid_points])
+            color_array.append(color[valid_points])
 
             mat_count = mat_count + 1
 
-        if mat_count == 20:
+        if mat_count == 10:
             # continue with the processing part
             break
-
-    # Render
-    now = time.time()
-
-    out.fill(0)
-
-    # grid(out, (0, 0.5, 1), size=1, n=10)
-    # frustum(out, depth_intrinsics)
-    # axes(out, view([0, 0, 0]), state.rotation, size=0.1, thickness=1)
-
-    # if not state.scale or out.shape[:2] == (h, w):
-    #     pointcloud(out, verts, texcoords, color_source)
-    # else:
-    #     tmp = np.zeros((h, w, 3), dtype=np.uint8)
-    #     pointcloud(tmp, verts, texcoords, color_source)
-    #     tmp = cv2.resize(
-    #         tmp, out.shape[:2][::-1], interpolation=cv2.INTER_NEAREST)
-    #     np.putmask(out, tmp > 0, tmp)
 
     dt = time.time() - now
 
@@ -197,9 +164,7 @@ while True:
         decimate.set_option(rs.option.filter_magnitude, 2 ** state.decimate)
 
     if key == ord("e"):
-        # points.export_to_ply('./out.ply', mapped_frame)
-        # default_export_points(points)
-        texture = get_texture_for_pointcloud(verts, texcoords, color_frame)
+        texture = get_color_from_image(texcoords, color_image)
         export_numpy_array_to_ply(verts, texture, f'{time.time()}.ply')
 
     if key in (27, ord("q")) or cv2.getWindowProperty(state.WIN_NAME, cv2.WND_PROP_AUTOSIZE) < 0:
@@ -211,24 +176,21 @@ pipeline.stop()
 # close opencv window
 cv2.destroyAllWindows()
 
+print("Removing outliers from point clouds...")
 colors_list = []
-print("Computing colors and removing outliers from point clouds...")
 for i in range(len(vertices_array)):
     # remove outliers statistically from each point cloud
-    current_color = get_texture_for_pointcloud(vertices_array[i].copy(), tex_coords_array[i], texture_data_array[i],
-                                               color_w, color_h,
-                                               bytes_per_pixel, stride_in_bytes)
-    # remove noisy data from each point cloud
     valid_indices = remove_statistical_outliers(vertices_array[i], nb_neighbours=50, std_ratio=1)
     vertices_array[i] = vertices_array[i][valid_indices]
 
     # append color to the main color array with valid indices
-    colors_list.append(current_color[valid_indices])
+    colors_list.append(color_array[i][valid_indices])
+print("Outliers removed.")
 
 # create main_color array to match main_point_cloud
 main_color = np.vstack(colors_list)
-print("Outliers removed.")
 
+transf_matrices = []
 transf_matrices.append(np.eye(4, 4))
 # get first information about first point cloud
 X_src = vertices_array[0].copy()
@@ -273,15 +235,13 @@ while index < length:
     # move to the next point cloud
     index = index + 1
 
-
 print("Down sampling point cloud.")
 indices = down_sample_point_cloud(main_pc)
 
 export_numpy_array_to_ply(main_pc, main_color, "./demo/result.ply")
 
-
 export_numpy_array_to_ply(main_pc[indices], main_color[indices], "./demo/down_sampled_result.ply", rotate_columns=False)
 removed_indices = np.invert(indices)
 
-export_numpy_array_to_ply(main_pc[removed_indices], main_color[removed_indices], "./demo/removed_from_result.ply", rotate_columns=False)
-
+export_numpy_array_to_ply(main_pc[removed_indices], main_color[removed_indices], "./demo/removed_from_result.ply",
+                          rotate_columns=False)
