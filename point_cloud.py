@@ -58,8 +58,8 @@ state = AppState()
 pipeline = rs.pipeline()
 config = rs.config()
 
-config.enable_stream(rs.stream.depth, rs.format.z16, 30)
-config.enable_stream(rs.stream.color, rs.format.bgr8, 30)
+config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 30)
+config.enable_stream(rs.stream.color, 848, 480, rs.format.bgr8, 30)
 
 # Start streaming color & depth
 pipeline.start(config)
@@ -69,6 +69,9 @@ profile = pipeline.get_active_profile()
 depth_profile = rs.video_stream_profile(profile.get_stream(rs.stream.depth))
 depth_intrinsics = depth_profile.get_intrinsics()
 w, h = depth_intrinsics.width, depth_intrinsics.height
+
+align_to = rs.stream.color
+align = rs.align(align_to)
 
 # Processing blocks
 pc = rs.pointcloud()
@@ -97,8 +100,9 @@ while True:
         # Wait for a coherent pair of frames: depth and color
         frames = pipeline.wait_for_frames()
 
-        depth_frame = frames.get_depth_frame()
-        color_frame = frames.get_color_frame()
+        aligned_frames = align.process(frames)
+        depth_frame = aligned_frames.get_depth_frame()
+        color_frame = aligned_frames.get_color_frame()
 
         frame_count = frame_count + 1
 
@@ -185,7 +189,7 @@ while True:
         state.WIN_NAME, "RealSense (%dx%d) %dFPS (%.2fms) %s" %
                         (w, h, 1.0 / dt, dt * 1000, "PAUSED" if state.paused else ""))
 
-    cv2.imshow(state.WIN_NAME, out)
+    cv2.imshow(state.WIN_NAME, color_image)
     key = cv2.waitKey(1)
 
     if key == ord("d"):
@@ -266,7 +270,6 @@ while index < length:
 
     # append current point cloud to the main point cloud
     main_pc = np.vstack((main_pc, current_pc))
-
     # move to the next point cloud
     index = index + 1
 
