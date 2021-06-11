@@ -4,14 +4,29 @@ import numpy as np
 import scipy.spatial as spatial
 
 
-def get_texture_for_pointcloud(vertices, tex_coords, texture_data, w, h, bytes_per_pixel, stride_in_bytes):
+def get_color_from_image(texcoords, color_image):
+    """
+    Get color based on texture coordinates from given RGB image to be mapped over point cloud.
+    """
+    # image width
+    cw = color_image.shape[1]
+    # image height
+    ch = color_image.shape[0]
+
+    v, u = (texcoords * (cw, ch) + 0.5).astype(np.uint32).T
+    # clip texcoords to image
+    np.clip(u, 0, ch - 1, out=u)
+    np.clip(v, 0, cw - 1, out=v)
+    return color_image[u, v]
+
+
+def get_texture_for_pointcloud(tex_coords, texture_data, w, h, bytes_per_pixel, stride_in_bytes):
     # Reference: https://github.com/Resays/xyz_rgb_realsense/blob/ede2bf9cc81d67ff0a7b616a5c70ff529e43bfe3/xyz_rgb_realsense.cpp
     start_time = time.time()
     # get information from color frame
     texture = []
-    length = len(vertices)
-    for i in range(length):
-        texture.append(get_texture_color(tex_coords[i], texture_data, w, h, bytes_per_pixel, stride_in_bytes))
+    for tex_coord_item in tex_coords:
+        texture.append(get_texture_color(tex_coord_item, texture_data, w, h, bytes_per_pixel, stride_in_bytes))
 
     print("Color fetched in: ", time.time() - start_time)
     return np.asanyarray(texture).reshape(-1, 3)
