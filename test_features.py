@@ -344,7 +344,7 @@ def get_correspondences_flann(prev_image, curr_image):
     for i in range(len(pts_B)):
         x = pts_B[i][0]
         y = pts_B[i][1]
-        cv2.rectangle(curr_image, (x-10, y-10),(x+10, y+10), 255, 3, -1)
+        cv2.rectangle(curr_image, (x - 10, y - 10), (x + 10, y + 10), 255, 3, -1)
     plt.imshow(curr_image), plt.show()
 
     return prev_kp, curr_kp, np.array(good_matches)[inliers]
@@ -372,13 +372,13 @@ if __name__ == "__main__":
     start = time.time()
     # feature_match_BF()
     # feature_match_FLANN_angles()
-    feature_match_FLANN_RANSAC()
+    feature_match_FLANN_RANSAC("./pictures3/test_color_5.png", "./pictures3/test_color_6.png")
 
-    prev_image = cv2.imread("./pictures/test_color_1.png", 0)  # queryImage
-    curr_image = cv2.imread("./pictures/test_color_2.png", 0)  # trainImage
+    prev_image = cv2.imread("./pictures3/test_color_5.png", 0)  # queryImage
+    curr_image = cv2.imread("./pictures3/test_color_6.png", 0)  # trainImage
 
-    prev_depth = cv2.imread("./pictures/test_depth_1.png", 0)
-    curr_depth = cv2.imread("./pictures/test_depth_2.png", 0)
+    prev_depth = np.loadtxt("./pictures3/test_depth_5.csv", delimiter=',')
+    curr_depth = np.loadtxt("./pictures3/test_depth_6.csv", delimiter=',')
 
     pts_A, pts_B = get_correspondences(prev_image, curr_image)
 
@@ -411,15 +411,14 @@ if __name__ == "__main__":
     left_points = np.array(left_points)
     right_points = np.array(right_points)
 
-    T = icp_point_to_point(right_points, left_points, tolerance=0.000001)
+    T = icp_point_to_point(left_points, right_points, max_iterations=1, tolerance=0.000001)
 
     print("Transformation: ", T)
-    points_a, colors_a = import_point_cloud_from_ply("./pictures/point_cloud_1.ply")
-    points_b, colors_b = import_point_cloud_from_ply("./pictures/point_cloud_2.ply")
+    points_a, colors_a = import_point_cloud_from_ply("./pictures3/point_cloud_5.ply")
+    points_b, colors_b = import_point_cloud_from_ply("./pictures3/point_cloud_6.ply")
 
     points_a_ext = add_ones(points_a)
-    T = np.linalg.inv(T)
-    result = (T @ points_a_ext.T)[:3].T
-    export_numpy_array_to_ply(result, colors_a, "./pictures/test_result_1_2.ply", rotate_columns=False)
+    result = (T @ points_a_ext.T)[:3]
+    export_numpy_array_to_ply(result.T, colors_a, "./pictures3/test_result_5_6.ply", rotate_columns=False)
 
     print("It took:", time.time() - start)
