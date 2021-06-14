@@ -28,12 +28,13 @@ def test_removal_centroid(file_name="test.ply", cutoff=1.0):
                               rotate_columns=False)
 
 
-def test_remove_outliers(file_name="outliers.ply", nb_neighbours=50, std_ratio=1):
+def test_remove_outliers(file_name="test_nou1.ply", nb_neighbours=50, std_ratio=3):
     points_a, colors_a = import_point_cloud_from_ply(file_name)
     valid_indices = remove_statistical_outliers(points_a, nb_neighbours, std_ratio)
     invalid_indices = np.invert(valid_indices)
     colors_a[invalid_indices] = (0, 0, 255)
-    export_numpy_array_to_ply(points_a[valid_indices], colors_a[valid_indices], f"removed_outliers_result.ply", rotate_columns=False)
+    export_numpy_array_to_ply(points_a[valid_indices], colors_a[valid_indices], f"removed_outliers_result.ply",
+                              rotate_columns=False)
     export_numpy_array_to_ply(points_a, colors_a, f"removed_outliers_result_color.ply", rotate_columns=False)
 
 
@@ -68,6 +69,7 @@ def test_icp(file_name1="test_nou1.ply", file_name2="test_nou2.ply"):
         colors_a = colors_a[:-(len_a - len_b)]
     else:
         points_b = points_b[:-(len_b - len_a)]
+        colors_b = colors_b[:-(len_b - len_a)]
 
     initial_transformation = np.eye(4, 4)
     # perform icp on point clouds without outliers
@@ -77,14 +79,14 @@ def test_icp(file_name1="test_nou1.ply", file_name2="test_nou2.ply"):
     ones = np.ones((len(points_a), 1))
     points_a = np.append(points_a, ones, axis=1)
     # inv_T = np.linalg.inv(T)
-    test = points_a @ T
+    test = (T @ points_a.T).T
 
     # remove the extra column of ones used in homogeneous coordinates
     test = np.delete(test, 3, axis=1)
     # result = np.delete(result, 3, axis=1)
 
     export_numpy_array_to_ply(test, colors_a,
-                              f'after_icp_test_{file_name1}',
+                              f'after_icp_test_{file_name1}.ply',
                               rotate_columns=False)
 
 
@@ -159,7 +161,9 @@ def test_icp_point_to_plane(file_name1="test_nou1.ply", file_name2="test_nou2.pl
     X_result = X_result.T
     X_result = np.delete(X_result, 3, axis=1)
 
-    export_numpy_array_to_ply(X_result, colors_dst, "after_icp_point_without_outliers_to_plane.ply", rotate_columns=False)
+    export_numpy_array_to_ply(X_result, colors_dst, "after_icp_point_without_outliers_to_plane.ply",
+                              rotate_columns=False)
+
 
 def test_down_sampling_method(file_name="test_nou1.ply"):
     import time
@@ -176,7 +180,6 @@ def test_down_sampling_method(file_name="test_nou1.ply"):
 if __name__ == "__main__":
     # test_removal_centroid("outliers.ply", cutoff=1)
     # test_removal_with_radius("outliers.ply",radius=0.05)
-    # test_icp()
     # test_open3d("test_nou1.ply", "test_nou2.ply")
     # test_remove_outliers(file_name="outliers.ply", nb_neighbours=30)
 
