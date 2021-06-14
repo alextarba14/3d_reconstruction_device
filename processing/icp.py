@@ -137,6 +137,7 @@ def icp_point_to_point(A, B, initial_transformation=None, max_iterations=50, tol
 
     best_fit = np.inf
     nr_hits = 0
+    print("{:9s} | {:15s} ".format("Iteration", "Mean error"))
     for i in range(max_iterations):
         # find the nearest neighbors between the current source and destination points
         # distances, indices = nearest_neighbor(src[:m, :].T, dst[:m, :].T)
@@ -158,19 +159,16 @@ def icp_point_to_point(A, B, initial_transformation=None, max_iterations=50, tol
             best_src = src.copy()
             # reset number of improvements
             nr_hits = 0
-            print("Best_fit: ", best_fit)
         else:
             nr_hits = nr_hits + 1
-        print(f'Iteration {i} from {max_iterations}...')
+        print("{:9s} | {:15s} ".format(str(i), str(mean_error)))
 
         # close the loop when the mean_error didn't dropped for three times in a row
         if nr_hits > 2:
             break
 
     # calculate final transformation
-    best_T = best_fit_transform(best_src[:m, :].T, A)
+    best_T = best_fit_transform(A, best_src[:m, :].T)
 
-    # # remove the extra ones from the src before returning it
-    # best_src = best_src.T
-    # best_src = np.delete(best_src, 3, axis=1)
+    print("Process done!\n")
     return best_T
