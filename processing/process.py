@@ -120,7 +120,7 @@ def remove_statistical_outliers(point_cloud, nb_neighbours: int, std_ratio: floa
     return positive & negative
 
 
-def down_sample_point_cloud(point_cloud):
+def down_sample_point_cloud(point_cloud, nb_neighbors=3):
     """
     Down sample point cloud to remove points that are to close to each other
     and do not carry additional information.
@@ -130,7 +130,7 @@ def down_sample_point_cloud(point_cloud):
     # create a KDTree structure to find nearest neighbors
     kd_tree = spatial.cKDTree(point_cloud)
     # get the distances and indices between each point and 5 nearest neighbors
-    dist, indices = kd_tree.query(point_cloud, k=3, p=2, n_jobs=-1)
+    dist, indices = kd_tree.query(point_cloud, k=nb_neighbors, p=2, n_jobs=-1)
 
     # create an array with boolean values to keep or drop indices
     keep_indices = np.full(len(point_cloud), False, dtype=bool)
@@ -158,3 +158,22 @@ def random_down_sample_point_cloud(point_cloud, sample_ratio: float):
     no_of_points = len(point_cloud)
     ratio = int(sample_ratio * no_of_points)
     return np.random.choice(no_of_points, ratio)
+
+
+def uniform_down_sample_point_cloud(point_cloud, each_kth_index=2, sample_ratio=None):
+    """
+    Function to down sample input point cloud into output point cloud uniformly based on the indices.
+    The sample is performed in the order of the points with the 0-th point always chosen, not at random.
+    Returns:
+        indices: indices selected uniformly based on an kth index or a ratio from the original size
+    """
+    no_of_points = len(point_cloud)
+    if sample_ratio:
+        if sample_ratio < 0 or sample_ratio > 1:
+            raise ValueError("Sample ratio must be in [0,1].")
+        ratio = int(sample_ratio * no_of_points)
+        return np.round(np.linspace(0, no_of_points - 1, ratio)).astype(int)
+    else:
+        if each_kth_index < 0:
+            raise ValueError("Each k point must be a positive number.")
+        return np.arange(0, no_of_points, each_kth_index)
