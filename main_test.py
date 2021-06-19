@@ -2,7 +2,8 @@ from icp_point_to_plane.icp_point_to_plane import icp
 from input_output.ply import import_point_cloud_from_ply, export_numpy_array_to_ply
 from processing.icp import icp_point_to_point
 from processing.process import remove_points_far_away_from_centroid, remove_points_with_less_neighbours, \
-    down_sample_point_cloud, remove_statistical_outliers
+    down_sample_point_cloud, remove_statistical_outliers, random_down_sample_point_cloud, \
+    uniform_down_sample_point_cloud
 import numpy as np
 import open3d as o3d
 
@@ -165,16 +166,21 @@ def test_icp_point_to_plane(file_name1="test_nou1.ply", file_name2="test_nou2.pl
                               rotate_columns=False)
 
 
-def test_down_sampling_method(file_name="test_nou1.ply"):
+def test_down_sampling_methods(file_name="test_nou1.ply"):
     import time
     points_a, colors_a = import_point_cloud_from_ply(file_name)
     start = time.time()
-    indices = down_sample_point_cloud(points_a)
-    print("Downsampling took: ", (time.time() - start))
-    export_numpy_array_to_ply(points_a[indices], colors_a[indices], f"downsampled_{file_name}", rotate_columns=False)
-
-    inverted = np.invert(indices)
-    export_numpy_array_to_ply(points_a[inverted], colors_a[inverted], f"what_removed_{file_name}", rotate_columns=False)
+    indices = uniform_down_sample_point_cloud(points_a, sample_ratio=0.1)
+    print("Uniform: ", (time.time() - start))
+    export_numpy_array_to_ply(points_a[indices], colors_a[indices], "RESULT_uniform.ply", rotate_columns=False)
+    start = time.time()
+    indices = random_down_sample_point_cloud(points_a, sample_ratio=0.1)
+    print("Random: ", (time.time() - start))
+    export_numpy_array_to_ply(points_a[indices], colors_a[indices], "RESULT_random.ply", rotate_columns=False)
+    start = time.time()
+    indices = down_sample_point_cloud(points_a, 3)
+    print("Median: ", (time.time() - start))
+    export_numpy_array_to_ply(points_a[indices], colors_a[indices], "RESULT_median.ply", rotate_columns=False)
 
 
 if __name__ == "__main__":
@@ -184,4 +190,4 @@ if __name__ == "__main__":
     # test_remove_outliers(file_name="outliers.ply", nb_neighbours=30)
 
     # test_icp_point_to_plane()
-    test_down_sampling_method()
+    test_down_sampling_methods()
