@@ -105,7 +105,7 @@ while True:
 
     index = frame_count % threshold
     if index == 0:
-        print("Frame count:", frame_count)
+        print("Frame count:", mat_count)
         # keep only valid points in point cloud
         valid_points = get_indexes_of_valid_points(verts)
         # get color from image based on texture coordinates
@@ -148,7 +148,7 @@ while True:
 
 # Stop streaming
 pipeline.stop()
-
+start_time = time.time()
 # close opencv window
 cv2.destroyAllWindows()
 
@@ -173,12 +173,13 @@ X_src = vertices_array[0].copy()
 for i in range(1, len(vertices_array)):
     X_dst = vertices_array[i].copy()
     # get transformation matrix that match destination over source
-    Tr = icp(X_src, X_dst)
+    Tr = icp(X_src, X_dst, correspondences=1000, neighbors=10)
     transf_matrices.append(Tr)
 
     # update the current source
     X_src = vertices_array[i].copy()
 
+print("Applying transformation matrices...")
 main_pc = vertices_array[0]
 index = 1
 length = len(vertices_array)
@@ -213,11 +214,11 @@ while index < length:
 
 print("Down sampling point cloud.")
 indices = down_sample_point_cloud(main_pc)
+print("Without exporting: ", (time.time() - start_time))
+export_numpy_array_to_ply(main_pc, main_color, f"./facultate/result_{time.time()}.ply")
 
-export_numpy_array_to_ply(main_pc, main_color, "./demo/result.ply")
-
-export_numpy_array_to_ply(main_pc[indices], main_color[indices], "./demo/down_sampled_result.ply", rotate_columns=False)
+export_numpy_array_to_ply(main_pc[indices], main_color[indices], "./facultate/down_sampled_result.ply", rotate_columns=False)
 removed_indices = np.invert(indices)
 
-export_numpy_array_to_ply(main_pc[removed_indices], main_color[removed_indices], "./demo/removed_from_result.ply",
+export_numpy_array_to_ply(main_pc[removed_indices], main_color[removed_indices], "./facultate/removed_from_result.ply",
                           rotate_columns=False)

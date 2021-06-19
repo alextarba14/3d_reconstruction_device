@@ -8,7 +8,7 @@ from processing.process import remove_statistical_outliers
 
 def remove_outliers_from_point_clouds(vertices, colors):
     print("Removing outliers...")
-    for i in range(13):
+    for i in range(len(vertices)):
         valid_indices = remove_statistical_outliers(vertices[i], nb_neighbours=50, std_ratio=1)
         vertices[i] = vertices[i][valid_indices]
         colors[i] = colors[i][valid_indices]
@@ -27,7 +27,6 @@ if __name__ == "__main__":
     start_time = time.time()
     # Remove outliers from each point cloud
     vertices, colors = remove_outliers_from_point_clouds(vertices, colors)
-
     # create main_color array to match main_point_cloud
     main_color = np.vstack(colors)
 
@@ -38,7 +37,7 @@ if __name__ == "__main__":
     for i in range(1, len(vertices)):
         X_dst = vertices[i].copy()
         # get transformation matrix that match destination over source
-        Tr = icp(X_src, X_dst, correspondences=1000, neighbors=10, max_iterations=20)
+        Tr = icp(X_src, X_dst, correspondences=1000, neighbors=10, max_iterations=50)
         transf_matrices.append(Tr)
 
         # update the current source
