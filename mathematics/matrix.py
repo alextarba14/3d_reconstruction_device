@@ -81,7 +81,7 @@ def get_indexes_of_valid_points(point_cloud):
     # keep only elements that have depth greater than 0
     valid_points = point_cloud[:, 2] > 0
     # keep only elements that are not too far away
-    close_points = point_cloud[:, 2] <= 2.5
+    close_points = point_cloud[:, 2] <= 3.5
 
     # result keep points in (0,2.5] meters
     return valid_points & close_points
