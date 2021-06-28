@@ -18,20 +18,19 @@ def remove_outliers_from_point_clouds(vertices, colors):
 
 def equalize_dimensions(vertices, colors):
     length = len(vertices)
-    i = 0
+    # find minimum size in whole array
+    min_size = np.inf
+    for i in range(length):
+        current_length = vertices[i].shape[0]
+        if current_length < min_size:
+            min_size = current_length
 
-    while i < (length - 1):
-        # remove some points from the bigger point cloud to have the same shape
-        len_b = vertices[i].shape[0]
-        len_a = vertices[i + 1].shape[0]
-        if len_a < len_b:
-            vertices[i] = vertices[i][:len_a]
-            colors[i] = colors[i][:len_a]
-        else:
-            vertices[i + 1] = vertices[i + 1][:len_b]
-            colors[i + 1] = colors[i + 1][:len_b]
-        i = i + 1
-
+    # update each point cloud with minimum size
+    for i in range(length):
+        current_length = vertices[i].shape[0]
+        if current_length > min_size:
+            vertices[i] = vertices[i][:min_size]
+            colors[i] = colors[i][:min_size]
 
 if __name__ == "__main__":
     vertices = []
